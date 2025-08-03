@@ -5,9 +5,7 @@ import { RootState } from "@/store/index";
 export const authApi = createApi({
   reducerPath: "authApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "https://192.168.2.110:5000",
-    // baseUrl: "https://10.207.164.26:5000",
-    // baseUrl:"https://10.49.178.26:5000",
+    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).auth.access_token;
       if (token) {
