@@ -94,7 +94,7 @@ const ChatPage = () => {
 
     // Receiving message
     socket.on("receive_message", async (data) => {
-      console.log("Received message:", data);
+      console.log("Received message::", data);
       const roomId = data.data.roomId;
       await handleNewMessage(roomId, data.data);
     });
