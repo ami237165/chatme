@@ -59,6 +59,7 @@ const ChatPage = () => {
   const [input, setInput] = useState("");
 
   useEffect(() => {
+    console.log("SOCKET_URL:", process.env.NEXT_PUBLIC_SOCKET_URL);
     const scrollToBottom = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
