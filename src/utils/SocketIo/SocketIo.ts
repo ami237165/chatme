@@ -7,7 +7,7 @@ export const getSocket = (mobile: any):Socket => {
     if(!socket){
       console.log("returning new socket");
       
-         socket = io(process.env.NEXT_SOCKET_MAIN_URL, {
+         socket = io(process.env.NEXT_PUBLIC_SOCKET_MAIN_URL, {
       transports: ["websocket"],
       secure: true,
       autoConnect: false,
