@@ -8,21 +8,26 @@ import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/utils/token_decoder";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
 import { ArrowRight } from "lucide-react";
+import { useFormData } from "@/hooks/useFormData";
 
 export default function Login() {
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [password, setPassword] = useState("");
+  // const [mobileNumber, setMobileNumber] = useState("");
+  // const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   const [login] = useLoginMutation();
   const dispatch = useDispatch();
   const router = useRouter();
+  const { formData, handleChange } = useFormData({
+    mobileNumber: "",
+    password: "",
+  });
 
   const handleLogin = async () => {
     setErrorMessage("");
     try {
-      const res = await login({ mobileNumber, password }).unwrap();
-console.log("ttttttttttt ,",res.access_token);
+      const res = await login(formData).unwrap();
+      console.log("ttttttttttt ,", res.access_token);
 
       if (res.access_token) {
         dispatch(setToken(res.access_token));
@@ -41,19 +46,23 @@ console.log("ttttttttttt ,",res.access_token);
     <AnimatedPageWrapper>
       <main className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
         <div className="w-full max-w-md bg-white text-black p-8 rounded-2xl shadow-xl space-y-6">
-          <h1 className="text-3xl font-bold text-center text-gray-900">Login</h1>
+          <h1 className="text-3xl font-bold text-center text-gray-900">
+            Login
+          </h1>
 
           <div className="space-y-4">
             <input
-              value={mobileNumber}
-              onChange={(e) => setMobileNumber(e.target.value)}
+              name="mobileNumber"
+              value={formData.mobileNumber}
+              onChange={handleChange}
               type="text"
               placeholder="Mobile Number"
               className="w-full border-b-2 border-gray-400 focus:border-gray-900 bg-transparent py-2 px-1 placeholder-gray-500 focus:outline-none transition"
             />
             <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               type="password"
               placeholder="Password"

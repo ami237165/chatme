@@ -1,26 +1,26 @@
-'use client';
+"use client";
 
-import { useRegisterMutation } from '@/store/authApi';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useFormData } from "@/hooks/useFormData";
+import { useRegisterMutation } from "@/store/authApi";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import { service } from "./service";
 
 export default function SignupPage() {
   const router = useRouter();
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [register] = useRegisterMutation();
-  const [formData, setFormData] = useState({
-    name: '',
-    mobileNumber: '',
-    email: '',
-    password: ''
+  // inside a component or custom hook
+  const { formData, handleChange } = useFormData({
+    name: "",
+    mobileNumber: "",
+    email: "",
+    password: "",
   });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,20 +29,24 @@ export default function SignupPage() {
     setSuccessMessage("");
 
     try {
-      const res = await register(formData).unwrap();
-      console.log("res:", res);
+      const res = await service(formData);
+      console.log("res:", res.data);
 
       if (res?.data === "success") {
-        setSuccessMessage("✅ Account created successfully! Redirecting to login...");
+        setSuccessMessage(
+          "✅ Account created successfully! Redirecting to login..."
+        );
         setTimeout(() => {
-          router.push('/login');
+          router.push("/login");
         }, 2000);
       } else {
         setErrorMessage(res.data);
       }
     } catch (error: any) {
       console.error("Register error:", error);
-      setErrorMessage(error?.error || "❌ Something went wrong. Please try again.");
+      setErrorMessage(
+        error?.error || "❌ Something went wrong. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -51,7 +55,9 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black px-4">
       <div className="w-full max-w-md bg-gray-900 p-8 rounded-xl shadow-lg border border-gray-700">
-        <h2 className="text-2xl font-bold text-white mb-6 text-center">Sign Up</h2>
+        <h2 className="text-2xl font-bold text-white mb-6 text-center">
+          Sign Up
+        </h2>
 
         {errorMessage && (
           <div className="mb-4 text-red-400 text-sm bg-red-800/30 px-4 py-2 rounded">
@@ -66,54 +72,50 @@ export default function SignupPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1" htmlFor="name">Name</label>
-            <input
-              name="name"
-              type="text"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-600"
-              placeholder="Your full name"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1" htmlFor="mobile">Mobile Number</label>
-            <input
-              name="mobileNumber"
-              type="tel"
-              value={formData.mobileNumber}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-600"
-              placeholder="Your mobile number"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1" htmlFor="email">Email</label>
-            <input
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-600"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1" htmlFor="password">Password</label>
-            <input
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-600"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
+          {["name", "mobileNumber", "email", "password"].map((field, index) => (
+            <div key={field}>
+              <label
+                className="block text-sm text-gray-300 mb-1"
+                htmlFor="name"
+              >
+                {field === "mobileNumber"
+                  ? "Mobile Number"
+                  : field[0].toUpperCase() + field.slice(1)}
+              </label>
+              <input
+                ref={(el) => {
+                  inputRefs.current[index] = el;
+                }}
+                name={field}
+                type={
+                  field === "password"
+                    ? "password"
+                    : field === "email"
+                    ? "email"
+                    : "text"
+                }
+                value={(formData as any)[field]}
+                onChange={handleChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (index < inputRefs.current.length - 1) {
+                      inputRefs.current[index + 1]?.focus();
+                    } else {
+                      handleSubmit(e); // submit on last input
+                    }
+                  }
+                }}
+                className="w-full px-4 py-2 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-600"
+                placeholder={
+                  field === "mobileNumber"
+                    ? "Your mobile number"
+                    : `Enter your ${field}`
+                }
+                required
+              />
+            </div>
+          ))}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -123,7 +125,10 @@ export default function SignupPage() {
           </button>
         </form>
         <p className="text-sm text-gray-400 text-center mt-4">
-          Already have an account? <a href="/login" className="text-white underline">Log in</a>
+          Already have an account?{" "}
+          <a href="/login" className="text-white underline">
+            Log in
+          </a>
         </p>
       </div>
     </div>
