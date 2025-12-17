@@ -6,7 +6,9 @@ import { videoActions } from "@/store/slices/callSlice";
 let peer: RTCPeerConnection | null = null;
 let pendingCandidates: RTCIceCandidateInit[] = [];
 
-export const getPeer = (mobile?: undefined) => {
+export const getPeer = (mobile?: string) => {
+  console.log("it is getPeereeeeee",config);
+  
   if (!peer || peer.signalingState === "closed") {
     peer = new RTCPeerConnection(config);
 
@@ -22,6 +24,8 @@ export const getPeer = (mobile?: undefined) => {
 
     // ICE candidates
     peer.onicecandidate = (event) => {
+      console.log("peer.onicecandidate");
+      
       if (event.candidate) {
         let currentMobile = store.getState().auth.currentMobile;
         let roomId = [mobile, currentMobile].sort().join("_");

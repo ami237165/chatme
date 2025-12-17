@@ -1,47 +1,62 @@
 "use client";
 
 import { useState } from "react";
-import { useLoginMutation } from "@/store/authApi";
 import { useDispatch } from "react-redux";
-import { setCurrentMobile, setToken } from "@/store/slices/slice";
+import {
+  setCurrentMobile,
+  setCurrentUser,
+  setToken,
+} from "@/store/slices/slice";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/utils/token_decoder";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
 import { ArrowRight } from "lucide-react";
 import { useFormData } from "@/hooks/useFormData";
+import { useAsyncForm } from "@/hooks/useAsyncForm";
+import { useLoginService } from "./service";
+import { ApiResponse } from "@/interfaces/response.InterFace";
+import { MessageUI } from "@/components/MessageUI";
+import { ButtonLoader } from "@/utils/ButtonLoader";
 
 export default function Login() {
-  // const [mobileNumber, setMobileNumber] = useState("");
-  // const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-
-  const [login] = useLoginMutation();
+  const { loginUser } = useLoginService();
   const dispatch = useDispatch();
   const router = useRouter();
   const { formData, handleChange } = useFormData({
     mobileNumber: "",
     password: "",
   });
+  const {
+    setErrorMessage,
+    setSuccessMessage,
+    isSubmitting,
+    redirect,
+    errorMessage,
+    successMessage,
+    run,
+  } = useAsyncForm();
 
   const handleLogin = async () => {
-    setErrorMessage("");
-    try {
-      const res = await login(formData).unwrap();
-      console.log("ttttttttttt ,", res.access_token);
+    console.log("handleLogin called");
+    
+    let data: ApiResponse = await run(() => loginUser(formData));
+    console.log(data, "data in login page");
+    
+    if (data.statusCode === 200) {
+      console.log("goes ion");
+      dispatch(setToken(data.data.access_token));
+      const decoded = decodeJWT(data.data.access_token);
+      dispatch(setCurrentMobile(decoded?.payload?.mobileNumber || null));
+      console.log("decoded?.payload ,",(decoded?.payload));
+      
+      dispatch(setCurrentUser(JSON.stringify(decoded?.payload) || null));
 
-      if (res.access_token) {
-        dispatch(setToken(res.access_token));
-        const decoded = decodeJWT(res.access_token);
-        dispatch(setCurrentMobile(decoded?.payload?.mobileNumber || null));
-        router.push("/list");
-      } else {
-        setErrorMessage(res.message || "Invalid mobile number or password");
-      }
-    } catch (error: any) {
-      setErrorMessage(error?.error || "Connection Problem");
+      setSuccessMessage(data.message);
+      redirect("/list");
+    } else {
+      setErrorMessage(data.message);
     }
   };
-
   return (
     <AnimatedPageWrapper>
       <main className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
@@ -74,6 +89,7 @@ export default function Login() {
             Don’t have an account?{" "}
             <button
               onClick={() => router.push("/signup")}
+              disabled={isSubmitting}
               className="text-blue-600 hover:underline"
             >
               Sign up
@@ -82,16 +98,21 @@ export default function Login() {
 
           <button
             onClick={handleLogin}
+            disabled={isSubmitting}
             className="w-full flex items-center justify-center gap-2 bg-black text-white py-2 rounded-full hover:bg-gray-800 transition"
           >
-            Continue <ArrowRight size={18} />
+            {isSubmitting ? (
+              <ButtonLoader />
+            ) : (
+              <>
+                Continue <ArrowRight size={18} />
+              </>
+            )}
           </button>
-
-          {errorMessage && (
-            <p className="text-red-600 text-sm text-center bg-red-100 p-2 rounded">
-              {errorMessage}
-            </p>
-          )}
+          <MessageUI
+            errorMessage={errorMessage}
+            successMessage={successMessage}
+          />
         </div>
       </main>
     </AnimatedPageWrapper>

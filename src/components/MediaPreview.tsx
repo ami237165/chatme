@@ -18,6 +18,8 @@ export const MediaPreview = ({ files, onRemove }: MediaPreviewProps) => {
   return (
     <div className="flex overflow-x-auto gap-1 max-w-fit no-scrollbar mx-1 p-1 rounded-lg bg-gray-500">
       {files.map((file, index) => {
+        console.log("Rendering file preview:", file);
+        
         const isImage = file.fileType.startsWith("image/");
         const isVideo = file.fileType.startsWith("video/");
         const isPdf = file.fileType === "application/pdf";

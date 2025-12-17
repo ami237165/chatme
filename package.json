@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_ENV=development node server.js",
+    "puredev": "next dev",
+    "dev":"NODE_ENV=development node server.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -28,6 +29,7 @@
     "redux-persist": "^6.0.0",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.3.1",
+    "use-debounce": "^10.0.5",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
@@ -37,9 +39,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/redux-persist": "^4.0.0",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
-    "tailwindcss": "^4",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.12",
     "tw-animate-css": "^1.3.6",
     "typescript": "^5"
   }

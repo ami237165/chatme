@@ -1,5 +1,5 @@
 // hooks/useSignup.ts
-import { useRegisterMutation } from '@/store/authApi';
+import { useRegisterMutation } from '@/store/apiServices/authapi';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 

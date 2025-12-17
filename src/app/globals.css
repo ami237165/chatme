@@ -126,4 +126,39 @@
   body {
     @apply bg-background text-foreground;
   }
+
+
+}
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(calc(-1 * var(--marquee-distance))); }
+  100% { transform: translateX(0); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 5s ease-in-out infinite;
+}
+
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE/Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;             /* Chrome/Safari */
+  scrollbar-width: none;  
 }

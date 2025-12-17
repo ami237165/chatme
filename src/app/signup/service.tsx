@@ -6,5 +6,7 @@ export const service = async (payload: RegisterPayload) => {
   const result = await store
     .dispatch(authApi.endpoints.register.initiate(payload))
     .unwrap();
+    console.log("fdfrghjk ,",result);
+    
   return result;
 };

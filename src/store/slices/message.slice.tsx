@@ -40,9 +40,16 @@ const messageSlice = createSlice({
       if (!state[roomId]) {
         state[roomId] = [];
       }
+      // 🚨 If msg already exists → ignore
+      if (state[roomId].some(m => m.id === message.id)) {
+        return;
+      }
       state[roomId].push(message);
     },
+     clearMessages(state) {
+      return initialState; // resets to empty object {}
+    }
   },
 });
-export const { addMessage } = messageSlice.actions;
+export const { addMessage,clearMessages } = messageSlice.actions;
 export default messageSlice.reducer;

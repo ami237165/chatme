@@ -1,19 +1,13 @@
 "use client";
-
 import { useFormData } from "@/hooks/useFormData";
-import { useRegisterMutation } from "@/store/authApi";
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { service } from "./service";
+import { useAsyncForm } from "@/hooks/useAsyncForm";
+import { ApiResponse } from "@/interfaces/response.InterFace";
+import { MessageUI } from "@/components/MessageUI";
 
 export default function SignupPage() {
-  const router = useRouter();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [register] = useRegisterMutation();
   // inside a component or custom hook
   const { formData, handleChange } = useFormData({
     name: "",
@@ -22,34 +16,21 @@ export default function SignupPage() {
     password: "",
   });
 
+  const { setErrorMessage,setSuccessMessage,isSubmitting,redirect,errorMessage,successMessage,run} = useAsyncForm();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      const res = await service(formData);
-      console.log("res:", res.data);
-
-      if (res?.data === "success") {
-        setSuccessMessage(
-          "✅ Account created successfully! Redirecting to login..."
-        );
-        setTimeout(() => {
-          router.push("/login");
-        }, 2000);
-      } else {
-        setErrorMessage(res.data);
-      }
-    } catch (error: any) {
-      console.error("Register error:", error);
-      setErrorMessage(
-        error?.error || "❌ Something went wrong. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
+    let data: ApiResponse = await run(() => service(formData));
+    console.log("data ,",data);
+   if(data?.statusCode){
+    if(data.statusCode === 200){
+      setSuccessMessage(data.message);
+      redirect('/login')
+    }else{
+      setErrorMessage(data.message);
     }
+   } 
+    
+    // run(() => service(formData));
   };
 
   return (
@@ -58,19 +39,7 @@ export default function SignupPage() {
         <h2 className="text-2xl font-bold text-white mb-6 text-center">
           Sign Up
         </h2>
-
-        {errorMessage && (
-          <div className="mb-4 text-red-400 text-sm bg-red-800/30 px-4 py-2 rounded">
-            {errorMessage}
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="mb-4 text-green-400 text-sm bg-green-800/30 px-4 py-2 rounded">
-            {successMessage}
-          </div>
-        )}
-
+        <MessageUI errorMessage={errorMessage} successMessage={successMessage}/>
         <form onSubmit={handleSubmit} className="space-y-5">
           {["name", "mobileNumber", "email", "password"].map((field, index) => (
             <div key={field}>

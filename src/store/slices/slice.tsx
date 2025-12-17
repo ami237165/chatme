@@ -12,6 +12,10 @@ const initialState = {
     typeof window !== "undefined" && localStorage.getItem("currentMobile")
       ? localStorage.getItem("currentMobile")
       : [],
+  currentUser:
+    typeof window !== "undefined" && localStorage.getItem("currentUser")
+      ? localStorage.getItem("currentUser")
+      : {},    
   showCallUI: false,
 };
 
@@ -38,6 +42,12 @@ const authSlice = createSlice({
         localStorage.setItem("currentMobile", action.payload);
       }
     },
+    setCurrentUser: (state, action) => {
+      state.currentUser = action.payload;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("currentUser", action.payload);
+      }
+    },
    
   },
 });
@@ -45,6 +55,7 @@ export const {
   setToken,
   setContacts,
   setCurrentMobile,
+  setCurrentUser
 } = authSlice.actions;
 
 export default authSlice.reducer;

@@ -1,11 +1,11 @@
 "use client";
 import { configureStore } from "@reduxjs/toolkit";
-import { authApi } from "@/store/authApi";
 import { callSlice, peerSlice, videoSlice } from "@/store/slices/callSlice"; // ✅ Uses new callSlice
 import authReducer from "@/store/slices/slice"; // ✅ correct slice
 import messagesReducer from "@/store/slices/message.slice";
 import { persistReducer, persistStore } from "redux-persist";
 import idbStorage from "@/utils/storageAdopter";
+import { baseApi } from "./apiServices/baseApi";
 
 const persistConfig = {
   key: "message",
@@ -15,7 +15,7 @@ const persistedReducer = persistReducer(persistConfig, messagesReducer);
 
 export const store = configureStore({
   reducer: {
-    [authApi.reducerPath]: authApi.reducer,
+    [baseApi.reducerPath]: baseApi.reducer,
     call: callSlice.reducer,
     video: videoSlice.reducer,
     peer: peerSlice.reducer,
@@ -24,6 +24,8 @@ export const store = configureStore({
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
+      // serializableCheck: false,
+
       serializableCheck: {
         // Ignore these action types because they carry MediaStream or RTCPeerConnection
         ignoredActions: [
@@ -46,9 +48,10 @@ export const store = configureStore({
           "peer.remoteDiscription",
           "peer.offer",
           "register",
+          "message"
         ],
       },
-    }).concat(authApi.middleware),
+    }).concat(baseApi.middleware),    
 });
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

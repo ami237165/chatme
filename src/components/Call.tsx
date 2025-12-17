@@ -16,13 +16,13 @@ const Call = (props: any) => {
   
 
   if (call.status === "calling") {
-    return <CallOverLay mobile={props.mobile} />;
+    return <CallOverLay mobile={props.mobile} currentMobile={props.currentMobile}/>;
   }
   if (call.status === "incoming") {
-    return <IncomingCallOverlay mobile={props.mobile} />;
+    return <IncomingCallOverlay mobile={props.mobile} currentMobile={props.currentMobile}/>;
   }
   if (call.status === "connected") {
-    return <CallOverLay mobile={props.mobile} />;
+    return <CallOverLay mobile={props.mobile} currentMobile={props.currentMobile}/>;
   }
   return null;
 };

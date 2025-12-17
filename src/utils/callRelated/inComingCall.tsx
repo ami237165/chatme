@@ -12,7 +12,50 @@ export default function IncomingCallOverlay(props: any) {
   const video = useSelector((state: any) => state.video);
 
   console.log("offerAanswer on incomming b ,", offerAanswer);
+  useEffect(() => {
+    console.log("jhggggggggggggg");
+    
+    const socket = getSocket(currentMobile);
+    console.log("socketsocketsocketsocketsocketsocketsocket ,",socket);
+    
+    socket.on('end-call', async (data) =>{
+      console.log("end call data , ",data);
 
+      dispatch(callActions.endCall());
+      
+          if (video.localStream) {
+            video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
+              track.stop();
+            });
+            // CLEAR local stream in Redux
+            dispatch(videoActions.setLocalStream(null));
+          }
+      
+          if (video.remoteStream) {
+            video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
+              track.stop();
+            });
+            // CLEAR remote stream in Redux
+            dispatch(videoActions.setRemoteStream(null));
+          }
+          // setIsDragging(false);
+      
+          // Clear video elements
+          // if (localMainVideoRef.current) localMainVideoRef.current.srcObject = null;
+          // if (localVideoRef.current) localVideoRef.current.srcObject = null;
+          // if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      
+          // Reset peer
+          const peer = getPeer(currentMobile);
+          peer.getSenders().forEach((sender) => {
+            try {
+              peer.removeTrack(sender);
+            } catch (e) {}
+          });
+          peer.close();
+    })
+  }, [])
+  
   const handleReject = () => {
     const socket = getSocket(currentMobile);
 
@@ -42,7 +85,7 @@ export default function IncomingCallOverlay(props: any) {
     }
 
     // Reset peer
-    const peer = getPeer(props.mobile);
+    const peer = getPeer(currentMobile);
     peer.getSenders().forEach((sender) => {
       try {
         peer.removeTrack(sender);

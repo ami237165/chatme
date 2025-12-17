@@ -1,14 +1,18 @@
 "use client";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
+import { store } from "@/store";
+import { clearMessages } from "@/store/slices/message.slice";
 import ProtectedRoutes from "@/utils/ProtectedRoutes";
+import { getSocket } from "@/utils/SocketIo/SocketIo";
 import { decodeJWT } from "@/utils/token_decoder";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-
 export default function ProfilePage() {
   const router = useRouter();
   const token = useSelector((state: any) => state.auth.access_token);
+    const currentMobile = useSelector((state: any) => state.auth.currentMobile);
+  
   const [details, setdetails] = useState<any>();
   useEffect(() => {
     let val = decodeJWT(token);
@@ -21,7 +25,9 @@ export default function ProfilePage() {
     localStorage.clear(); // or specific keys
     indexedDB.deleteDatabase("ChatMediaDB"); // optional
     indexedDB.deleteDatabase("localforage"); // optional
-
+    let socket = getSocket(currentMobile);
+    store.dispatch(clearMessages());
+    socket.close()
     router.push("/login"); // or your auth screen
   };
 
@@ -36,7 +42,7 @@ export default function ProfilePage() {
                 {details?.name}
               </h2>
               <p className="text-sm text-gray-500">{details?.mobileNumber}</p>
-              <p className="text-sm text-gray-500">your.email@example.com</p>
+              <p className="text-sm text-gray-500">{details?.email}</p>
             </div>
 
             <div className="mt-8 space-y-4">

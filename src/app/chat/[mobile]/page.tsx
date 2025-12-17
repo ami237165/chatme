@@ -4,46 +4,38 @@ import { getSocket } from "@/utils/SocketIo/SocketIo";
 import { useViewportHeight } from "@/utils/useViewportHeight";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  callActions,
-  peerActions,
-  videoActions,
-} from "@/store/slices/callSlice";
+import { useSelector } from "react-redux";
 import Call from "@/components/Call";
-import {
-  addCandidateSafely,
-  getPeer,
-  resetPeer,
-} from "@/utils/callRelated/Peer";
+import { addCandidateSafely } from "@/utils/callRelated/Peer";
 import { v4 as uuidv4 } from "uuid";
-import toast, { Toaster } from "react-hot-toast";
-import { addMessage } from "@/store/slices/message.slice";
-import { RootState } from "@/store";
-import {
-  FileAttachment,
-  MessageData,
-} from "@/interfaces/meseage_related/messageInterFace";
-// import { prepareMessageForRedux } from "@/utils/reduxMsgParser";
+import { Toaster } from "react-hot-toast";
+import { MessageData } from "@/interfaces/meseage_related/messageInterFace";
 import { selectMessagesByRoomId } from "@/utils/selectors/messages";
-import { ArrowLeft, CircleX } from "lucide-react";
-import { getMediaFromIndexedDB, saveMediaToIndexedDB } from "@/lib/indexdb";
+import { ArrowLeft, Paperclip, SendHorizontal, Video } from "lucide-react";
 import { MediaPreviewLoader } from "@/components/MediaPreviewLoader";
 import { MediaPreview } from "@/components/MediaPreview";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
+import { useHandleNewMsg } from "../../../hooks/useHandleNewMsg";
+import { useHandleFileChange } from "../../../hooks/useHandleFileChange";
+import { useHandleVCall } from "../../../hooks/useHandleVCall";
+import { useOnCallOffer } from "@/hooks/useOnCallOffer";
+import { useOnHangUpCall } from "@/hooks/useOnHangUpCall";
+import { usePresence } from "@/hooks/usePresence";
+import { formatLastSeen } from "@/utils/userActivity/lastSeen";
+import { useLoadMessagesService } from "@/services/msg.service";
+import { loadmsg } from "@/store/apiServices/loadMsg";
+import { saveMediaToIndexedDB } from "@/lib/indexdb";
+import { m } from "framer-motion";
 
 const ChatPage = () => {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
   const [isClient, setIsClient] = useState(false);
   let { mobile }: any = useParams();
   let contact = useSelector((state: any) => state.auth.contacts);
-  let name = contact?.filter((user: any) => user?.mobileNumber == mobile)[0]
-    ?.name;
+  const { loadMessages } = useLoadMessagesService();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const video = useSelector((state: any) => state.video);
 
   const getRoomId = (userA: string, userB: string) =>
     [userA, userB].sort().join("_");
@@ -52,308 +44,121 @@ const ChatPage = () => {
     () => getRoomId(currentMobile, mobile),
     [currentMobile, mobile]
   );
-
   const messages = useSelector(selectMessagesByRoomId(roomId));
-
-  const [pendingFiles, setPendingFiles] = useState<FileAttachment[]>([]);
   const [input, setInput] = useState("");
+  const { handleNewMessage } = useHandleNewMsg();
+  const {
+    fileInputRef,
+    handleFileChange,
+    pendingFiles,
+    setPendingFiles,
+    removedFileFromDB,
+  } = useHandleFileChange();
+  const { handleVCall } = useHandleVCall({ mobile, currentMobile });
+  const { useCallOffer } = useOnCallOffer({ mobile, currentMobile });
+  const { useHangUpCall } = useOnHangUpCall({ mobile, currentMobile });
+  const presence = usePresence(currentMobile, mobile);
 
   useEffect(() => {
-    console.log("SOCKET_URL:", process.env.NEXT_PUBLIC_SOCKET_MAIN_URL);
-    console.log("Base url:", process.env.NEXT_PUBLIC_API_BASE_URL);
+  if (!currentMobile || !mobile) return;
+  loadMsg();
 
-    const scrollToBottom = () => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-    scrollToBottom();
-  }, [messages]);
+  const socket = getSocket(currentMobile);
+  const roomId = [mobile, currentMobile].sort().join("_");
+  socket.emit("join-room", roomId);
+
+  return () => {
+    socket.emit("leave-room", roomId);
+  };
+}, [currentMobile, mobile]);
+
+
+const loadMsg = async () => {
+  if (!currentMobile || !mobile || !roomId) return;
+
+  const existingMsgs = messages; // from Redux
+  console.log("existingMsgs",existingMsgs);
+  
+  const lastTimestamp = existingMsgs.length
+    ? existingMsgs[0].timestamp
+    : Date.now() - 10 * 24 * 60 * 60 * 1000;
+
+  try {
+    const fetched = await loadMessages({
+      roomId,
+      from: Number(lastTimestamp),
+      to: Date.now()
+    });
+    
+
+    [...fetched].reverse().forEach(msg => {
+      console.log("fetched msg",msg);
+      if(msg.hasFiles && msg.files.length !== 0){
+        msg.files?.map(async (file, idx) => (
+                  await saveMediaToIndexedDB(file.fileId, file.fileData.data) 
+        ))           
+      }
+      // const exists = existingMsgs.some(m => m.id === msg.id);
+       handleNewMessage(roomId, msg);
+    });
+  } catch (error) {
+    console.error("Failed to load messages:", error);
+  }
+};
+console.log("messages loaded from db",messages);
+
+
 
   // Helper to get roomId
   useViewportHeight();
-  useEffect(() => {
-    let roomId = [mobile, currentMobile].sort().join("_");
-    let socket = getSocket(currentMobile);
-    socket.emit("join-room", roomId);
-  }, []);
-  useEffect(() => {
-    const dataEstimater = async () => {
-      if (navigator.storage && (await navigator.storage.estimate())) {
-        const quota = await navigator.storage.estimate();
-        const percentageUsed = (quota.usage! / quota.quota!) * 100;
-        console.log(` you have used ${percentageUsed} of the total storage`);
-        const remaining = (quota.quota! - quota.usage!) / 1024 / 1024;
-        console.log(` you can write ${remaining} more mb`);
-      }
-    };
-    dataEstimater();
-    console.log("hhhhhhhhhhhhh ,", messages);
-  }, [messages]);
+  // useEffect(() => {
+  //   let roomId = [mobile, currentMobile].sort().join("_");
+  //   let socket = getSocket(currentMobile);
+  //   socket.emit("join-room", roomId);
+  // }, []);
   useEffect(() => {
     setIsClient(true);
     const socket = getSocket(currentMobile);
     if (!socket.connected) socket.connect();
-
-    socket.on("connect", () => console.log("Connected to socket:", socket.id));
-
     // Receiving message
     socket.on("receive_message", async (data) => {
-      console.log("Received message::", data);
       const roomId = data.data.roomId;
       await handleNewMessage(roomId, data.data);
     });
-
     // Incoming call offer
     socket.on("call-offer", async (data) => {
-      console.log("call offer data ,", data);
-
-      const peer = getPeer(mobile);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1, // single channel for mobile devices
-          sampleRate: 48000, // better audio quality
-        },
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
-      dispatch(videoActions.setLocalStream(stream));
-      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
-
-      await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
-      dispatch(peerActions.setOffer(data));
-
-      const answer = await peer.createAnswer();
-      let answerData = {
-        sender: currentMobile,
-        receiver: data.sender,
-        answer: answer,
-        roomId: data.roomId,
-      };
-      await peer.setLocalDescription(answer);
-      dispatch(peerActions.setAnswer(answerData));
-
-      // Show incoming call UI
-      dispatch(callActions.incomingCall());
+      useCallOffer(data);
     });
-
     // ICE candidates
     socket.on("ice-candidate", async (data) => {
       await addCandidateSafely(data.candidate);
     });
 
     socket.on("hangup-call", (data) => {
-      dispatch(callActions.endCall());
-
-      if (video.localStream) {
-        video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
-          track.stop();
-        });
-        // CLEAR local stream in Redux
-        dispatch(videoActions.setLocalStream(null));
-      }
-
-      if (video.remoteStream) {
-        video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
-          track.stop();
-        });
-        // CLEAR remote stream in Redux
-        dispatch(videoActions.setRemoteStream(null));
-      }
-
-      // Reset peer
-      const peer = getPeer(currentMobile);
-      peer.getSenders().forEach((sender) => {
-        try {
-          peer.removeTrack(sender);
-        } catch (e) {}
-      });
-      peer.close();
+      useHangUpCall();
     });
 
     return () => {
       socket.off("call-offer");
       socket.off("receive_message");
-
       socket.off("ice-candidate");
       socket.off("end-call");
+      socket.off("hangup-call");
     };
   }, []);
-
-  // Initiate call
-  const handleVCall = async () => {
-    const peer = getPeer(mobile);
-    const socket = getSocket(currentMobile);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 48000,
-        },
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30, max: 60 },
-        },
-      });
-
-      if (!stream) throw new Error("Could not capture user media");
-
-      dispatch(videoActions.setLocalStream(stream));
-
-      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
-
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-      let roomId = [mobile, currentMobile].sort().join("_");
-      const offerData = {
-        sender: currentMobile,
-        receiver: mobile,
-        offer,
-        roomId,
-      };
-
-      dispatch(peerActions.setOffer(offerData));
-      socket.emit("call-offer", offerData);
-
-      dispatch(callActions.initiateCall());
-    } catch (error: any) {
-      console.error("WebRTC Call Error:", error);
-
-      let errorMsg = "Something went wrong while trying to access media.";
-
-      if (error.name === "NotAllowedError") {
-        errorMsg = "Please Provide Permission to access camera/microphone.";
-        toast(errorMsg, {
-          duration: 3000,
-          position: "top-center",
-          icon: <CircleX color="red" />,
-          className:
-            " className: 'bg-red-600 text-white px-4 py-2 rounded-md shadow-lg'",
-          iconTheme: {
-            primary: "#ffffff",
-            secondary: "#ef4444",
-          },
-        });
-      } else if (error.name === "NotFoundError") {
-        errorMsg = "No media device found. Please check your camera and mic.";
-        toast(errorMsg, {
-          duration: 3000,
-          position: "top-center",
-          icon: <CircleX color="red" />,
-          className:
-            " className: 'bg-red-600 text-white px-4 py-2 rounded-md shadow-lg'",
-          iconTheme: {
-            primary: "#ffffff",
-            secondary: "#ef4444",
-          },
-        });
-      } else if (error.name === "NotReadableError") {
-        errorMsg = "Camera or microphone is already in use.";
-        toast(errorMsg, {
-          duration: 3000,
-          position: "top-center",
-          icon: <CircleX color="red" />,
-          className:
-            " className: 'bg-red-600 text-white px-4 py-2 rounded-md shadow-lg'",
-          iconTheme: {
-            primary: "#ffffff",
-            secondary: "#ef4444",
-          },
-        });
-      }
-      dispatch(callActions.endCall());
-    }
-  };
-  const handleNewMessage = async (roomId: any, msg: MessageData) => {
-    if (msg.hasFiles && msg.files?.length) {
-      for (const file of msg.files) {
-        if (file.fileData) {
-          let arrayBuffer;
-
-          if (file.fileData instanceof File) {
-            arrayBuffer = await file.fileData.arrayBuffer();
-          } else if (file.fileData instanceof Uint8Array) {
-            arrayBuffer = file.fileData.buffer.slice(
-              file.fileData.byteOffset,
-              file.fileData.byteOffset + file.fileData.byteLength
-            );
-          } else if (file.fileData instanceof ArrayBuffer) {
-            arrayBuffer = file.fileData;
-          } else {
-            console.warn("Unsupported fileData type", file.fileData);
-            continue;
-          }
-          try {
-            await saveMediaToIndexedDB(file.fileId, arrayBuffer);
-          } catch (error) {
-            console.log("Failed to save to IndexedDB:,", error);
-          }
-
-          delete file.fileData; // ✅ Clean up for Redux
-          delete file?.previewUrl;
-        }
-      }
-    }
-
-    dispatch(addMessage({ roomId, message: msg }));
-  };
 
   if (!isClient) return null;
   // Trigger hidden file input
   const handleAttachClick = () => {
     fileInputRef.current?.click();
   };
-  //handle file change
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const convertToPreview = async (file: File): Promise<FileAttachment> => {
-      const fileId = `file_${crypto.randomUUID()}`; // ✅ Unique ID
-      const blobUrl = URL.createObjectURL(file); // ✅ For preview
-      console.log("ffffffffffffffffff ,", file);
-      try {
-        await saveMediaToIndexedDB(fileId, file);
-      } catch (error) {
-        console.log("Failed to save to IndexedDB:,", error);
-      }
-      // await saveMediaToIndexedDB(fileId, file); // ✅ Save to IndexedDB
-
-      return {
-        fileName: file.name,
-        fileType: file.type,
-        previewUrl: blobUrl,
-        fileData: file,
-        fileId: fileId, // ✅ store just ID (reference)
-      };
-    };
-
-    try {
-      const results = await Promise.all(
-        Array.from(files).map((file) => convertToPreview(file))
-      );
-
-      setPendingFiles((prev) => [...prev, ...results]);
-
-      // Reset input value
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (err) {
-      console.error("Error generating preview:", err);
-    }
-  };
-
-  const handleRemoveFile = (index: number) => {
+  const handleRemoveFile = async (index: number) => {
+    console.log("Removing file at index from UI and DB:", index);
+    
     const removedFile = pendingFiles[index];
     URL.revokeObjectURL(removedFile.previewUrl);
-    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+    await removedFileFromDB(index);
   };
 
   const handlesendMessage = () => {
@@ -370,6 +175,9 @@ const ChatPage = () => {
       files: pendingFiles.length > 0 ? pendingFiles : undefined,
       timestamp: Date.now(),
       roomId: currentRoomId,
+      isRead: false,
+      isSent: false,
+      isUploading: false,
     };
 
     sendMessage(msg);
@@ -379,7 +187,7 @@ const ChatPage = () => {
   };
   //send msg
   const sendMessage = async (msg: MessageData) => {
-    console.log("inside send msg");
+    console.log("inside send msg",msg);
 
     const socket = getSocket(currentMobile);
 
@@ -391,6 +199,7 @@ const ChatPage = () => {
   const handleBackToChatList = () => {
     router.back(); // replace with your actual route
   };
+
   if (!isClient) return null;
 
   return (
@@ -406,7 +215,7 @@ const ChatPage = () => {
           }}
         >
           {/* header started */}
-          <div className="header-body shadow-md shadow-gray-300 z-10 bg-gray-700 flex items-center justify-between px-1 py-1">
+          <div className="header-body shadow-md shadow-gray-300 z-10 bg-gray-700 flex items-center justify-between px-1 pr-2 py-1">
             {/* Back Button */}
             <div className="flex-none pr-1">
               <div className="cursor-pointer" onClick={handleBackToChatList}>
@@ -418,11 +227,26 @@ const ChatPage = () => {
             <div className="flex items-center gap-2 flex-grow">
               <div
                 className="w-10 h-10 bg-gray-300 rounded-full"
-                onClick={() => router.push("/profile")}
+                // onClick={() => router.push("/profile")}
               />
-              <div className="flex flex-col">
-                <h2 className="text-lg text-gray-100">{name}</h2>
-                <p className="text-sm text-gray-300">Online</p>
+              <div className="w-3/6 flex flex-col">
+                {/* Name container with fixed height */}
+                <div className="relative overflow-hidden whitespace-nowrap h-6">
+                  <p className="absolute animate-marquee text-white">
+                    {contact && contact.length > 0
+                      ? contact?.filter(
+                          (user: any) => user?.mobileNumber == mobile
+                        )[0]?.name
+                      : mobile}
+                  </p>
+                </div>
+
+                {/* Status below */}
+                <p className="text-sm text-gray-300">
+                  {presence?.online && presence.online
+                    ? "Online"
+                    : formatLastSeen(presence.lastSeen)}
+                </p>
               </div>
             </div>
 
@@ -432,37 +256,8 @@ const ChatPage = () => {
                 onClick={handleVCall}
                 className="cursor-pointer text-gray-100"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="w-6 h-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-                  />
-                </svg>
+                <Video />
               </div>
-              {/* <div className="cursor-pointer text-gray-100">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="w-6 h-6"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"
-        />
-      </svg>
-    </div> */}
             </div>
           </div>
 
@@ -505,7 +300,7 @@ const ChatPage = () => {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handlesendMessage()}
                     placeholder="Message"
-                    className="focus:outline-none"
+                    className="focus:outline-none placeholder-gray-400"
                   />
                 </div>
                 <div
@@ -519,40 +314,20 @@ const ChatPage = () => {
                     onChange={handleFileChange}
                     multiple
                   />
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                    className="size-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"
-                    />
-                  </svg>
+                  <Paperclip />
                 </div>
               </div>
               <div
                 onClick={() => handlesendMessage()}
                 className="send text-green-300 bg-gray-800 rounded-full p-2 items-center"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="size-7"
-                >
-                  <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-                </svg>
+                <SendHorizontal />
               </div>
             </div>
           </div>
 
           {/*  input body ended*/}
-          <Call mobile={mobile} />
+          <Call mobile={mobile} currentMobile={currentMobile} />
         </div>
       </ProtectedRoutes>
     </AnimatedPageWrapper>

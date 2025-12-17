@@ -1,7 +1,7 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { getMediaFromIndexedDB } from '@/lib/indexdb';
-import type { FileAttachment } from '@/interfaces/meseage_related/messageInterFace'; // adjust the import path as needed
+"use client";
+import { useEffect, useState } from "react";
+import { getMediaFromIndexedDB } from "@/lib/indexdb";
+import type { FileAttachment } from "@/interfaces/meseage_related/messageInterFace"; // adjust the import path as needed
 
 // type Props = {
 //   file: FileAttachment;
@@ -9,40 +9,40 @@ import type { FileAttachment } from '@/interfaces/meseage_related/messageInterFa
 
 export function MediaPreviewLoader({ file }: any) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  console.log(JSON.stringify(file.fileId));
 
   useEffect(() => {
-  let isMounted = true;
+  if (!file?.fileId || !file?.fileType) return;
+
   let tempUrl: string | null = null;
 
   const fetchBlob = async () => {
     try {
       const media = await getMediaFromIndexedDB(file.fileId);
-      console.log("media ,", media);
-      
-      if (media && isMounted) {
-        const blob = new Blob([media], { type: file.fileType });
-        tempUrl = URL.createObjectURL(blob);
-        setBlobUrl(tempUrl);
-      }
+      console.log("Fetched media:", media);
+
+      if (!media) return;
+
+      const blob = new Blob([new Uint8Array(media)], { type: file.fileType });
+      tempUrl = URL.createObjectURL(blob);
+      setBlobUrl(tempUrl);
     } catch (err) {
-      console.error('Failed to load media from IndexedDB:', err);
+      console.error("Failed to load media from IndexedDB:", err);
     }
   };
 
   fetchBlob();
 
   return () => {
-    isMounted = false;
-    if (tempUrl) {
-      URL.revokeObjectURL(tempUrl);
-    }
+    if (tempUrl) URL.revokeObjectURL(tempUrl);
   };
-}, [file.fileId]);
+}, [file]); // 👈 Watch full `file` object
 
+  console.log("blobUrl", blobUrl);
 
-  const isImage = file.fileType.startsWith('image/');
-  const isVideo = file.fileType.startsWith('video/');
-  const isPdf = file.fileType === 'application/pdf';
+  const isImage = file.fileType.startsWith("image/");
+  const isVideo = file.fileType.startsWith("video/");
+  const isPdf = file.fileType === "application/pdf";
 
   if (!blobUrl)
     return <p className="text-xs italic text-gray-400">Loading media...</p>;
@@ -52,7 +52,7 @@ export function MediaPreviewLoader({ file }: any) {
       {isImage && (
         <img
           src={blobUrl}
-          alt={file.fileName}
+          alt={file?.fileName || file?.filename}
           className="w-full sm:w-auto max-w-full sm:max-w-[300px] md:max-w-[400px] rounded-md border object-contain"
         />
       )}
@@ -79,7 +79,7 @@ export function MediaPreviewLoader({ file }: any) {
           download={file.fileName}
           className="text-blue-500 text-sm break-all"
         >
-          Download {file.fileName}
+          Download {file.fileName || file?.filename}
         </a>
       )}
     </div>

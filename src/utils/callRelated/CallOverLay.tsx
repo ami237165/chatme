@@ -15,6 +15,7 @@ import {
   Video,
   VideoOff,
 } from "lucide-react";
+import { useOnHangUpCall } from "@/hooks/useOnHangUpCall";
 
 export default function CallOverLay(props: any) {
   const dispatch = useDispatch();
@@ -30,9 +31,9 @@ export default function CallOverLay(props: any) {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-
-  const [isDragging, setIsDragging] = useState(false);
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
+  const { useHangUpCall } = useOnHangUpCall(currentMobile);
+  const [isDragging, setIsDragging] = useState(false);
   const offerAanswer = useSelector((state: any) => state.peer);
 
   // Handle signaling events
@@ -155,39 +156,38 @@ export default function CallOverLay(props: any) {
     socket.on("end-call", (data) => {
       dispatch(callActions.endCall());
 
-      if (video.localStream) {
-        video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
-          track.stop();
-        });
-        // CLEAR local stream in Redux
-        dispatch(videoActions.setLocalStream(null));
-      }
-
-      if (video.remoteStream) {
-        video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
-          track.stop();
-        });
-        // CLEAR remote stream in Redux
-        dispatch(videoActions.setRemoteStream(null));
-      }
-      setIsDragging(false);
-      // Clear video elements
-      if (localMainVideoRef.current) localMainVideoRef.current.srcObject = null;
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-
-      // Reset peer
-      const peer = getPeer(props.mobile);
-      peer.getSenders().forEach((sender) => {
-        try {
-          peer.removeTrack(sender);
-        } catch (e) {}
+    if (video.localStream) {
+      video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
+        track.stop();
       });
-      peer.close(); // important
+      // CLEAR local stream in Redux
+      dispatch(videoActions.setLocalStream(null));
+    }
+
+    if (video.remoteStream) {
+      video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
+        track.stop();
+      });
+      // CLEAR remote stream in Redux
+      dispatch(videoActions.setRemoteStream(null));
+    }
+    setIsDragging(false);
+
+    // Clear video elements
+    if (localMainVideoRef.current) localMainVideoRef.current.srcObject = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (mainScreenRef.current) mainScreenRef.current = null;
+
+    // Reset peer
+    const peer = getPeer(currentMobile);
+    peer.getSenders().forEach((sender) => {
+      try {
+        peer.removeTrack(sender);
+      } catch (e) {}
     });
-    return () => {
-      socket.off("end-call");
-    };
+    peer.close();
+  });
   }, []);
   const toggleAudio = () => {
     if (video.localStream) {
@@ -230,9 +230,10 @@ export default function CallOverLay(props: any) {
     if (localMainVideoRef.current) localMainVideoRef.current.srcObject = null;
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (mainScreenRef.current) mainScreenRef.current = null;
 
     // Reset peer
-    const peer = getPeer(props.mobile);
+    const peer = getPeer(currentMobile);
     peer.getSenders().forEach((sender) => {
       try {
         peer.removeTrack(sender);
@@ -242,23 +243,26 @@ export default function CallOverLay(props: any) {
 
     // Emit event to other peer
     const socket = getSocket(currentMobile);
-    const roomId = [
-      offerAanswer.offer.sender === currentMobile
-        ? offerAanswer.answer.sender
-        : offerAanswer.offer.sender,
-      currentMobile,
-    ]
-      .sort()
-      .join("_");
+    const getRoomId = (userA: string, userB: string) =>
+      [userA, userB].sort().join("_");
+    const currentRoomId = getRoomId(currentMobile, props.mobile);
+
     socket.emit("end-call", {
       sender: currentMobile,
-      receiver:
-        offerAanswer.offer.sender == currentMobile
-          ? offerAanswer.answer.sender
-          : offerAanswer.offer.sender,
-      roomId: roomId,
+      receiver: props.mobile,
+      roomId: currentRoomId,
     });
   };
+  useEffect(() => {
+    const socket = getSocket(currentMobile);
+    socket.on("hangup-call", (data) => {
+      useHangUpCall();
+    });
+
+    return () => {
+      socket.off("hangup-call");
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 w-full bg-gray-200 h-full">
