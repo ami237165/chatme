@@ -7,15 +7,13 @@ let peer: RTCPeerConnection | null = null;
 let pendingCandidates: RTCIceCandidateInit[] = [];
 
 export const getPeer = (mobile?: string) => {
-  console.log("it is getPeereeeeee",config);
-  
+    
   if (!peer || peer.signalingState === "closed") {
     peer = new RTCPeerConnection(config);
 
     // Remote stream handling
     const remoteStream = new MediaStream();
     peer.ontrack = (event) => {
-      console.log("ontrack fired with streams:", event.streams);
       event.streams[0]
         .getTracks()
         .forEach((track) => remoteStream.addTrack(track));
@@ -24,7 +22,6 @@ export const getPeer = (mobile?: string) => {
 
     // ICE candidates
     peer.onicecandidate = (event) => {
-      console.log("peer.onicecandidate");
       
       if (event.candidate) {
         let currentMobile = store.getState().auth.currentMobile;
@@ -56,7 +53,7 @@ export const addCandidateSafely = async (candidate: RTCIceCandidateInit) => {
     try {
       await peer.addIceCandidate(candidate);
     } catch (err) {
-      console.error("Error adding ICE candidate:", err);
+      
     }
   } else {
     pendingCandidates.push(candidate);
@@ -68,7 +65,7 @@ export const flushCandidates = async () => {
     try {
       await peer?.addIceCandidate(candidate);
     } catch (err) {
-      console.error("Error flushing ICE candidates:", err);
+      
     }
   }
   pendingCandidates = [];

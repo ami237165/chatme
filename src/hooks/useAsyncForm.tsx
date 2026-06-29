@@ -18,12 +18,10 @@ export function useAsyncForm() {
 
     try {
       const res = await fn();
-      console.log("res  gggggggg ,", res);
-
+      
       return res;
     } catch (err: any) {
-      console.log("cammmmmmmmmm",err);
-      
+            
       setErrorMessage(err?.error || "Something went wrong");
       return err;
     } finally {

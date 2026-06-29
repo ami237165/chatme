@@ -11,16 +11,12 @@ export default function IncomingCallOverlay(props: any) {
   const offerAanswer = useSelector((state: any) => state.peer);
   const video = useSelector((state: any) => state.video);
 
-  console.log("offerAanswer on incomming b ,", offerAanswer);
-  useEffect(() => {
-    console.log("jhggggggggggggg");
-    
+    useEffect(() => {
+        
     const socket = getSocket(currentMobile);
-    console.log("socketsocketsocketsocketsocketsocketsocket ,",socket);
-    
+        
     socket.on('end-call', async (data) =>{
-      console.log("end call data , ",data);
-
+      
       dispatch(callActions.endCall());
       
           if (video.localStream) {

@@ -20,8 +20,7 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     let data: ApiResponse = await run(() => service(formData));
-    console.log("data ,",data);
-   if(data?.statusCode){
+       if(data?.statusCode){
     if(data.statusCode === 200){
       setSuccessMessage(data.message);
       redirect('/login')

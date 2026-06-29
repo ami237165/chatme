@@ -49,8 +49,7 @@ const DiscoverUserList = ({
         setIsOverflow(false);
       }
     }
-    console.log("contact list api in add , ", data.data);
-  }, [data, name]);
+      }, [data, name]);
 
   const handleMessage = (mobile: string) => {
     router.push(`/chat/${mobile}`);
@@ -61,8 +60,7 @@ const DiscoverUserList = ({
       mobileNumber: mobile,
       currentUserId: JSON.parse(currentUser).id,
     };
-    console.log("handleAdd ,", inputData);
-    await addUser(inputData);
+        await addUser(inputData);
     dispatch(setContacts(data?.data));
   };
   return (

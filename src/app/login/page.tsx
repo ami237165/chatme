@@ -37,18 +37,14 @@ export default function Login() {
   } = useAsyncForm();
 
   const handleLogin = async () => {
-    console.log("handleLogin called");
-    
+        
     let data: ApiResponse = await run(() => loginUser(formData));
-    console.log(data, "data in login page");
-    
+        
     if (data.statusCode === 200) {
-      console.log("goes ion");
-      dispatch(setToken(data.data.access_token));
+            dispatch(setToken(data.data.access_token));
       const decoded = decodeJWT(data.data.access_token);
       dispatch(setCurrentMobile(decoded?.payload?.mobileNumber || null));
-      console.log("decoded?.payload ,",(decoded?.payload));
-      
+            
       dispatch(setCurrentUser(JSON.stringify(decoded?.payload) || null));
 
       setSuccessMessage(data.message);

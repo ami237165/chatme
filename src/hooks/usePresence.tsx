@@ -32,11 +32,9 @@ export const usePresence = (
 
     // Live ONLINE event
     socket.on("user-online", ({ userId }) => {
-        console.log("user-online event received for ", userId);
         
       if (userId === otherUserMobile) {
-        console.log("user came online ", userId);
-        
+                
         setPresence((prev) => ({
           ...prev,
           online: true,
@@ -47,10 +45,8 @@ export const usePresence = (
 
     // Live OFFLINE event
     socket.on("user-offline", ({ userId }) => {
-        console.log("user-offline event received for ", userId);
       if (userId === otherUserMobile) {
-        console.log("user went offline ", userId);
-        
+                
         setPresence((prev) => ({
           ...prev,
           online: false,

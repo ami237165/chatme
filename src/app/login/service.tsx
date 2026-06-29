@@ -8,7 +8,6 @@ export function useLoginService() {
   const loginUser = async (formData):Promise<ApiResponse> => {
     return await login(formData).unwrap();
   };
-  console.log("useLoginService initialized",loginUser);
-  
+    
   return { loginUser };
 }

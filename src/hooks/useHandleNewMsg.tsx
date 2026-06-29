@@ -21,14 +21,12 @@ export const useHandleNewMsg = () => {
           } else if (file.fileData instanceof ArrayBuffer) {
             arrayBuffer = file.fileData;
           } else {
-            console.warn("Unsupported fileData type", file.fileData);
-            continue;
+                        continue;
           }
           try {
             await saveMediaToIndexedDB(file.fileId, arrayBuffer);
           } catch (error) {
-            console.log("Failed to save to IndexedDB:,", error);
-          }
+                      }
 
           delete file.fileData; // ✅ Clean up for Redux
           delete file?.previewUrl;

@@ -9,7 +9,6 @@ import type { FileAttachment } from "@/interfaces/meseage_related/messageInterFa
 
 export function MediaPreviewLoader({ file }: any) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  console.log(JSON.stringify(file.fileId));
 
   useEffect(() => {
   if (!file?.fileId || !file?.fileType) return;
@@ -19,7 +18,6 @@ export function MediaPreviewLoader({ file }: any) {
   const fetchBlob = async () => {
     try {
       const media = await getMediaFromIndexedDB(file.fileId);
-      console.log("Fetched media:", media);
 
       if (!media) return;
 
@@ -27,7 +25,7 @@ export function MediaPreviewLoader({ file }: any) {
       tempUrl = URL.createObjectURL(blob);
       setBlobUrl(tempUrl);
     } catch (err) {
-      console.error("Failed to load media from IndexedDB:", err);
+      
     }
   };
 
@@ -38,8 +36,7 @@ export function MediaPreviewLoader({ file }: any) {
   };
 }, [file]); // 👈 Watch full `file` object
 
-  console.log("blobUrl", blobUrl);
-
+  
   const isImage = file.fileType.startsWith("image/");
   const isVideo = file.fileType.startsWith("video/");
   const isPdf = file.fileType === "application/pdf";

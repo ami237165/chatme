@@ -17,7 +17,6 @@ export default function ProfilePage() {
   useEffect(() => {
     let val = decodeJWT(token);
     setdetails(val.payload);
-    console.log("val ,", val.payload);
   }, [token]);
 
   const handleLogout = () => {

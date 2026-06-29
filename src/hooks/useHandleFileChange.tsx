@@ -13,11 +13,10 @@ export const useHandleFileChange = () => {
     const convertToPreview = async (file: File): Promise<FileAttachment> => {
       const fileId = `file_${crypto.randomUUID()}`; // ✅ Unique ID
       const blobUrl = URL.createObjectURL(file); // ✅ For preview
-      console.log("ffffffffffffffffff ,", file);
       try {
         await saveMediaToIndexedDB(fileId, file);
       } catch (error) {
-        console.log("Failed to save to IndexedDB:,", error);
+        
       }
       // await saveMediaToIndexedDB(fileId, file); // ✅ Save to IndexedDB
 
@@ -40,11 +39,10 @@ export const useHandleFileChange = () => {
       // Reset input value
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      console.error("Error generating preview:", err);
+      
     }
   };
   const removedFileFromDB = async (index: number) => {
-    console.log("Removing file at index:", index);
     
     const removedFile = pendingFiles[index];
 

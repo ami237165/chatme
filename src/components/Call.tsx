@@ -12,8 +12,7 @@ const Call = (props: any) => {
   const offerAanswer = useSelector((state: any) => state.peer);
 
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
-  console.log("offerAanswer ,",offerAanswer);
-  
+    
 
   if (call.status === "calling") {
     return <CallOverLay mobile={props.mobile} currentMobile={props.currentMobile}/>;

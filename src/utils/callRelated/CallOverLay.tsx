@@ -42,23 +42,19 @@ export default function CallOverLay(props: any) {
     const socket = getSocket(currentMobile);
 
     socket.on("call-answer", async (data) => {
-      console.log("call answereddddd ,", data);
-
+      
       dispatch(peerActions.setAnswer(data));
       if (peer.signalingState === "have-local-offer") {
-        console.log("indeise  signal chekinhg");
-
+        
         await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
         await flushCandidates();
         dispatch(callActions.acceptCall());
       } else {
-        console.warn("Cannot set remote answer in state:", peer.signalingState);
-      }
+              }
     });
 
     socket.on("ice-candidate", async (data) => {
-      console.log("ice-candidate ", data);
-
+      
       await addCandidateSafely(data.candidate);
     });
 
@@ -132,8 +128,7 @@ export default function CallOverLay(props: any) {
       let tt = peer
         .getSenders()
         .filter((sender) => sender.track?.kind === "audio");
-      console.log("audio by senders ,", tt);
-    }
+          }
   }, [video.remoteStream]);
   // Re-assign local video when remote stream appears
   useEffect(() => {

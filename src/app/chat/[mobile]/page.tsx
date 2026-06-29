@@ -26,6 +26,7 @@ import { useLoadMessagesService } from "@/services/msg.service";
 import { loadmsg } from "@/store/apiServices/loadMsg";
 import { saveMediaToIndexedDB } from "@/lib/indexdb";
 import { m } from "framer-motion";
+import { useLayoutEffect } from "react";
 
 const ChatPage = () => {
   const router = useRouter();
@@ -34,6 +35,8 @@ const ChatPage = () => {
   let { mobile }: any = useParams();
   let contact = useSelector((state: any) => state.auth.contacts);
   const { loadMessages } = useLoadMessagesService();
+  const msgContainerRef = useRef<HTMLDivElement>(null);
+  const initialLoadDone = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -60,62 +63,72 @@ const ChatPage = () => {
   const presence = usePresence(currentMobile, mobile);
 
   useEffect(() => {
-  if (!currentMobile || !mobile) return;
-  loadMsg();
+    if (!currentMobile || !mobile) return;
+    loadMsg();
 
-  const socket = getSocket(currentMobile);
-  const roomId = [mobile, currentMobile].sort().join("_");
-  socket.emit("join-room", roomId);
+    const socket = getSocket(currentMobile);
+    const roomId = [mobile, currentMobile].sort().join("_");
+    socket.emit("join-room", roomId);
 
-  return () => {
-    socket.emit("leave-room", roomId);
+    return () => {
+      socket.emit("leave-room", roomId);
+    };
+  }, [currentMobile, mobile]);
+  const loadMsg = async () => {
+    if (!currentMobile || !mobile || !roomId) return;
+
+    const existingMsgs = messages; // from Redux
+
+    const lastTimestamp = existingMsgs.length
+      ? existingMsgs[0].timestamp
+      : Date.now();
+
+    try {
+      const fetched = await loadMessages({
+        roomId,
+        from: Number(lastTimestamp),
+        to: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      });
+
+      [...fetched].reverse().forEach((msg) => {
+        if (msg.hasFiles && msg.files.length !== 0) {
+          msg.files?.map(
+            async (file, idx) =>
+              await saveMediaToIndexedDB(file.fileId, file.fileData.data)
+          );
+        }
+        // const exists = existingMsgs.some(m => m.id === msg.id);
+        handleNewMessage(roomId, msg);
+      });
+      requestAnimationFrame(() => {
+        const el = msgContainerRef.current;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+        }
+        initialLoadDone.current = true; // 🔥 IMPORTANT
+      });
+    } catch (error) {}
   };
-}, [currentMobile, mobile]);
-
-
-const loadMsg = async () => {
-  if (!currentMobile || !mobile || !roomId) return;
-
-  const existingMsgs = messages; // from Redux
-  console.log("existingMsgs",existingMsgs);
-  
-  const lastTimestamp = existingMsgs.length
-    ? existingMsgs[0].timestamp
-    : Date.now() - 10 * 24 * 60 * 60 * 1000;
-
-  try {
-    const fetched = await loadMessages({
-      roomId,
-      from: Number(lastTimestamp),
-      to: Date.now()
-    });
-    
-
-    [...fetched].reverse().forEach(msg => {
-      console.log("fetched msg",msg);
-      if(msg.hasFiles && msg.files.length !== 0){
-        msg.files?.map(async (file, idx) => (
-                  await saveMediaToIndexedDB(file.fileId, file.fileData.data) 
-        ))           
-      }
-      // const exists = existingMsgs.some(m => m.id === msg.id);
-       handleNewMessage(roomId, msg);
-    });
-  } catch (error) {
-    console.error("Failed to load messages:", error);
-  }
-};
-console.log("messages loaded from db",messages);
-
-
 
   // Helper to get roomId
   useViewportHeight();
-  // useEffect(() => {
-  //   let roomId = [mobile, currentMobile].sort().join("_");
-  //   let socket = getSocket(currentMobile);
-  //   socket.emit("join-room", roomId);
-  // }, []);
+  useEffect(() => {
+    if (!messages.length) return;
+
+    if (!initialLoadDone.current) {
+      // 🔥 FIRST LOAD → NO animation
+      messagesEndRef.current?.scrollIntoView({
+        behavior: "auto",
+      });
+      initialLoadDone.current = true;
+    } else {
+      // 🔥 NEW MESSAGE → smooth scroll
+      messagesEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }
+  }, [messages.length]);
+
   useEffect(() => {
     setIsClient(true);
     const socket = getSocket(currentMobile);
@@ -154,16 +167,12 @@ console.log("messages loaded from db",messages);
   };
 
   const handleRemoveFile = async (index: number) => {
-    console.log("Removing file at index from UI and DB:", index);
-    
     const removedFile = pendingFiles[index];
     URL.revokeObjectURL(removedFile.previewUrl);
     await removedFileFromDB(index);
   };
 
   const handlesendMessage = () => {
-    console.log("pendingFiles ,", pendingFiles.length);
-
     if (input.trim() === "" && pendingFiles.length === 0) return;
     const msg: MessageData = {
       id: uuidv4(),
@@ -187,8 +196,6 @@ console.log("messages loaded from db",messages);
   };
   //send msg
   const sendMessage = async (msg: MessageData) => {
-    console.log("inside send msg",msg);
-
     const socket = getSocket(currentMobile);
 
     socket.emit("send_message", msg);
@@ -263,7 +270,10 @@ console.log("messages loaded from db",messages);
 
           {/* header ended */}
           {/*  message body started*/}
-          <div className="msg-body flex-1 p-1 overflow-scroll">
+          <div
+            ref={msgContainerRef}
+            className="msg-body flex-1 p-1 overflow-scroll"
+          >
             {messages.map((msg) => (
               <div
                 key={msg.id}

@@ -1,8 +1,7 @@
 import React from "react";
 
 export const MobileInput = React.memo(({ mobile, setMobile }:{ mobile: any; setMobile: any; }) => {
-  console.log("MobileInput rendered");
-  return (
+    return (
    <input
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}

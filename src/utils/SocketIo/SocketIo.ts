@@ -3,10 +3,8 @@ import { io, Socket } from "socket.io-client";
 let socket: Socket | null;
 
 export const getSocket = (mobile: any):Socket => {
-  console.log("getSocket hit");
-    if(!socket){
-      console.log("returning new socket");
-      
+      if(!socket){
+            
          socket = io(process.env.NEXT_PUBLIC_SOCKET_MAIN_URL, {
       transports: ["websocket"],
       secure: true,

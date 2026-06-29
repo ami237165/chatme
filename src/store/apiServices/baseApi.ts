@@ -11,8 +11,7 @@ export const baseApi = createApi({
         headers.set("Authorization", `Bearer ${token}`);
       }
       if (!token) {
-        console.log("expireeee");
-      }
+              }
       return headers;
     },
   }),

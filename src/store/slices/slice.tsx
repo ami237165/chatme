@@ -1,5 +1,4 @@
 import { createSlice } from "@reduxjs/toolkit";
-console.log("hitting slice");
 
 const initialState = {
   access_token:

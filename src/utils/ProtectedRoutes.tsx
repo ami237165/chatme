@@ -5,8 +5,7 @@ import { useSelector } from "react-redux";
 import { decodeJWT } from "@/utils/token_decoder";
 
 const ProtectedRoutes = ({ children }: { children: React.ReactNode }) => {
-  console.log("hhhh ,", Date.now());
-
+  
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
   const token = useSelector((state: any) => state.auth.access_token);
@@ -23,7 +22,6 @@ const ProtectedRoutes = ({ children }: { children: React.ReactNode }) => {
           router.push("/login");
         }
       } catch (err) {
-        console.log("Invalid token:", err);
         router.push("/login");
       }
     }

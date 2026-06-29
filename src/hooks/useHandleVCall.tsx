@@ -13,7 +13,6 @@ export const useHandleVCall = ({ mobile, currentMobile }: UseVideoCallParams) =>
     // Initiate call
   const handleVCall = async () => {
     const peer = getPeer(mobile);
-    console.log("after getting peer");
         const socket = getSocket(currentMobile);
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -57,7 +56,7 @@ export const useHandleVCall = ({ mobile, currentMobile }: UseVideoCallParams) =>
 
       dispatch(callActions.initiateCall());
     } catch (error: any) {
-      console.error("WebRTC Call Error:", error);
+      
 
       let errorMsg = "Something went wrong while trying to access media.";
 

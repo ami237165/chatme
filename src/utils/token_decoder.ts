@@ -1,6 +1,5 @@
 export const  decodeJWT = (token:string) => {
-  console.log("TTTTTTTTTT , ",typeof(token));
-  
+    
   if (typeof token !== 'string') {
     throw new Error("Invalid token: must be a string");
   }

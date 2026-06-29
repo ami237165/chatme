@@ -33,12 +33,10 @@ const Page = () => {
     setIsAuthChecked(true);
     const socket = getSocket(currentMobile);
     if (!socket.connected) socket.connect();
-    console.log("after socket connect in list page ");
-  }, [token, router]);
+      }, [token, router]);
   useEffect(() => {
     if (data) {
-      console.log("here is the response data ,", data);
-
+      
       dispatch(
         setContacts(
           data?.data.filter((user: any) => user?.mobileNumber !== currentMobile)
