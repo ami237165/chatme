@@ -11,7 +11,7 @@ export const useOnHangUpCall = ({
 
   const dispatch = useDispatch();
     const video = useSelector((state: any) => state.video);
-  const useHangUpCall = async () => {
+  const handleHangUpCall = async () => {
     dispatch(callActions.endCall());
 
     if (video.localStream) {
@@ -39,5 +39,5 @@ export const useOnHangUpCall = ({
     });
     peer.close();
   };
-  return { useHangUpCall };
+  return { handleHangUpCall };
 };

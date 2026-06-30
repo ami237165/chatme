@@ -36,6 +36,7 @@ const SearchContacts: React.FC<SearchContactsProps> = ({ query,isAuthChecked }) 
           .filter((user: any) => user?.mobileNumber !== currentMobile)
           .map((item: any) => (
             <DiscoverUserList
+            key={item.id}
             isAuthChecked={isAuthChecked}
               id={item.id}
               name={item.name}

@@ -32,7 +32,7 @@ export default function CallOverLay(props: any) {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
-  const { useHangUpCall } = useOnHangUpCall(currentMobile);
+  const { handleHangUpCall } = useOnHangUpCall({ currentMobile });
   const [isDragging, setIsDragging] = useState(false);
   const offerAanswer = useSelector((state: any) => state.peer);
 
@@ -250,8 +250,8 @@ export default function CallOverLay(props: any) {
   };
   useEffect(() => {
     const socket = getSocket(currentMobile);
-    socket.on("hangup-call", (data) => {
-      useHangUpCall();
+    socket.on("hangup-call", () => {
+      handleHangUpCall();
     });
 
     return () => {

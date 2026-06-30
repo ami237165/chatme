@@ -14,7 +14,7 @@ export const useOnCallOffer = ({
   currentMobile,
 }: UseVideoCallParams) => {
   const dispatch = useDispatch();
-  const useCallOffer = async (data) => {
+  const handleCallOffer = async (data) => {
     const peer = getPeer(mobile);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
   alert("Your browser doesn't support camera/mic or connection is not secure (HTTPS required).");
@@ -53,5 +53,5 @@ export const useOnCallOffer = ({
     // Show incoming call UI
     dispatch(callActions.incomingCall());
   };
-  return { useCallOffer };
+  return { handleCallOffer };
 };

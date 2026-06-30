@@ -62,7 +62,8 @@ const Page = () => {
     );
 
   const handleClose = () => {
-    setInviteOpen(false), setQuery("");
+    setInviteOpen(false);
+    setQuery("");
   };
 
   return (

@@ -58,8 +58,8 @@ const ChatPage = () => {
     removedFileFromDB,
   } = useHandleFileChange();
   const { handleVCall } = useHandleVCall({ mobile, currentMobile });
-  const { useCallOffer } = useOnCallOffer({ mobile, currentMobile });
-  const { useHangUpCall } = useOnHangUpCall({ mobile, currentMobile });
+  const { handleCallOffer } = useOnCallOffer({ mobile, currentMobile });
+  const { handleHangUpCall } = useOnHangUpCall({ mobile, currentMobile });
   const presence = usePresence(currentMobile, mobile);
 
   useEffect(() => {
@@ -140,15 +140,15 @@ const ChatPage = () => {
     });
     // Incoming call offer
     socket.on("call-offer", async (data) => {
-      useCallOffer(data);
+      handleCallOffer(data);
     });
     // ICE candidates
     socket.on("ice-candidate", async (data) => {
       await addCandidateSafely(data.candidate);
     });
 
-    socket.on("hangup-call", (data) => {
-      useHangUpCall();
+    socket.on("hangup-call", () => {
+      handleHangUpCall();
     });
 
     return () => {
