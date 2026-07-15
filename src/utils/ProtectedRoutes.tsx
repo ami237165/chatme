@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { decodeJWT } from "@/utils/token_decoder";
+import SocketEventsProvider from "@/components/SocketEventsProvider";
+import GlobalCallOverlay from "@/components/GlobalCallOverlay";
 
 const ProtectedRoutes = ({ children }: { children: React.ReactNode }) => {
   
@@ -29,7 +31,13 @@ const ProtectedRoutes = ({ children }: { children: React.ReactNode }) => {
 
   if (!isClient || !token) return null;
 
-  return <>{children}</>;
+  return (
+    <>
+      <SocketEventsProvider />
+      <GlobalCallOverlay />
+      {children}
+    </>
+  );
 };
 
 export default ProtectedRoutes;

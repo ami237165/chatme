@@ -13,7 +13,7 @@ const initialState = {
       : [],
   currentUser:
     typeof window !== "undefined" && localStorage.getItem("currentUser")
-      ? localStorage.getItem("currentUser")
+      ? (localStorage.getItem("currentUser"))
       : {},    
   showCallUI: false,
 };
@@ -44,7 +44,7 @@ const authSlice = createSlice({
     setCurrentUser: (state, action) => {
       state.currentUser = action.payload;
       if (typeof window !== "undefined") {
-        localStorage.setItem("currentUser", action.payload);
+        localStorage.setItem("currentUser", (action.payload));
       }
     },
    

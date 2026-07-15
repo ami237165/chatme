@@ -5,28 +5,26 @@ import { useViewportHeight } from "@/utils/useViewportHeight";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import Call from "@/components/Call";
-import { addCandidateSafely } from "@/utils/callRelated/Peer";
 import { v4 as uuidv4 } from "uuid";
 import { Toaster } from "react-hot-toast";
 import { MessageData } from "@/interfaces/meseage_related/messageInterFace";
 import { selectMessagesByRoomId } from "@/utils/selectors/messages";
-import { ArrowLeft, Paperclip, SendHorizontal, Video } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Clock, Paperclip, SendHorizontal, Video } from "lucide-react";
 import { MediaPreviewLoader } from "@/components/MediaPreviewLoader";
 import { MediaPreview } from "@/components/MediaPreview";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
 import { useHandleNewMsg } from "../../../hooks/useHandleNewMsg";
 import { useHandleFileChange } from "../../../hooks/useHandleFileChange";
 import { useHandleVCall } from "../../../hooks/useHandleVCall";
-import { useOnCallOffer } from "@/hooks/useOnCallOffer";
-import { useOnHangUpCall } from "@/hooks/useOnHangUpCall";
 import { usePresence } from "@/hooks/usePresence";
 import { formatLastSeen } from "@/utils/userActivity/lastSeen";
-import { useLoadMessagesService } from "@/services/msg.service";
+import { useConversationService, useLoadMessagesService } from "@/services/msg.service";
 import { loadmsg } from "@/store/apiServices/loadMsg";
 import { saveMediaToIndexedDB } from "@/lib/indexdb";
 import { m } from "framer-motion";
 import { useLayoutEffect } from "react";
+import { RootState } from "@/store";
+import { User } from "@/store/slices/friends.slice";
 
 const ChatPage = () => {
   const router = useRouter();
@@ -58,21 +56,14 @@ const ChatPage = () => {
     removedFileFromDB,
   } = useHandleFileChange();
   const { handleVCall } = useHandleVCall({ mobile, currentMobile });
-  const { handleCallOffer } = useOnCallOffer({ mobile, currentMobile });
-  const { handleHangUpCall } = useOnHangUpCall({ mobile, currentMobile });
+  const friens = useSelector((state:RootState) => state.friends.friends)
+  const currentChat:User = friens.find((f:User) => f.mobileNumber == mobile)
+  const {createConvMetadata} = useConversationService();
   const presence = usePresence(currentMobile, mobile);
 
   useEffect(() => {
     if (!currentMobile || !mobile) return;
     loadMsg();
-
-    const socket = getSocket(currentMobile);
-    const roomId = [mobile, currentMobile].sort().join("_");
-    socket.emit("join-room", roomId);
-
-    return () => {
-      socket.emit("leave-room", roomId);
-    };
   }, [currentMobile, mobile]);
   const loadMsg = async () => {
     if (!currentMobile || !mobile || !roomId) return;
@@ -133,32 +124,7 @@ const ChatPage = () => {
     setIsClient(true);
     const socket = getSocket(currentMobile);
     if (!socket.connected) socket.connect();
-    // Receiving message
-    socket.on("receive_message", async (data) => {
-      const roomId = data.data.roomId;
-      await handleNewMessage(roomId, data.data);
-    });
-    // Incoming call offer
-    socket.on("call-offer", async (data) => {
-      handleCallOffer(data);
-    });
-    // ICE candidates
-    socket.on("ice-candidate", async (data) => {
-      await addCandidateSafely(data.candidate);
-    });
-
-    socket.on("hangup-call", () => {
-      handleHangUpCall();
-    });
-
-    return () => {
-      socket.off("call-offer");
-      socket.off("receive_message");
-      socket.off("ice-candidate");
-      socket.off("end-call");
-      socket.off("hangup-call");
-    };
-  }, []);
+  }, [currentMobile]);
 
   if (!isClient) return null;
   // Trigger hidden file input
@@ -187,6 +153,7 @@ const ChatPage = () => {
       isRead: false,
       isSent: false,
       isUploading: false,
+      delivered: false,
     };
 
     sendMessage(msg);
@@ -197,9 +164,14 @@ const ChatPage = () => {
   //send msg
   const sendMessage = async (msg: MessageData) => {
     const socket = getSocket(currentMobile);
-
-    socket.emit("send_message", msg);
+    // let metadata = await createConvMetadata(currentChat.connectionId);
+    // if(metadata.statusCode == 201 || metadata.statusCode == 200 && metadata.success == true){
+      socket.emit("send_message", msg);
     await handleNewMessage(msg.roomId, msg);
+
+    // }else{
+    //   alert("cant send msg")
+    // }
     setInput("");
   };
 
@@ -284,8 +256,7 @@ const ChatPage = () => {
                 }`}
               >
                 {/* Show text */}
-                {msg.text && <p>{msg.text}</p>}
-
+                {msg.text && <p>{msg.text} - {msg.delivered && msg.delivered ? <CheckCheck/> : <Check/>}</p>}
                 {/* Show file previews if they exist */}
                 {msg.hasFiles &&
                   msg.files?.map((file, idx) => (
@@ -337,7 +308,6 @@ const ChatPage = () => {
           </div>
 
           {/*  input body ended*/}
-          <Call mobile={mobile} currentMobile={currentMobile} />
         </div>
       </ProtectedRoutes>
     </AnimatedPageWrapper>

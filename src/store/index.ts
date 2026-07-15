@@ -1,27 +1,37 @@
 "use client";
-import { configureStore } from "@reduxjs/toolkit";
+import { combineReducers,configureStore } from "@reduxjs/toolkit";
 import { callSlice, peerSlice, videoSlice } from "@/store/slices/callSlice"; // ✅ Uses new callSlice
 import authReducer from "@/store/slices/slice"; // ✅ correct slice
 import messagesReducer from "@/store/slices/message.slice";
 import { persistReducer, persistStore } from "redux-persist";
 import idbStorage from "@/utils/storageAdopter";
 import { baseApi } from "./apiServices/baseApi";
-
+import friendsReducer from "./slices/friends.slice";
+import { resetStore } from "./resetAction";
 const persistConfig = {
   key: "message",
   storage:idbStorage,
 };
 const persistedReducer = persistReducer(persistConfig, messagesReducer);
 
+const appReducer = combineReducers({
+  [baseApi.reducerPath]: baseApi.reducer,
+  call: callSlice.reducer,
+  video: videoSlice.reducer,
+  peer: peerSlice.reducer,
+  auth: authReducer,
+  message: persistedReducer,
+  friends: friendsReducer,
+});
+const rootReducer = (state: any, action: any) => {
+  if (action.type === resetStore.type) {
+    state = undefined;
+  }
+
+  return appReducer(state, action);
+};
 export const store = configureStore({
-  reducer: {
-    [baseApi.reducerPath]: baseApi.reducer,
-    call: callSlice.reducer,
-    video: videoSlice.reducer,
-    peer: peerSlice.reducer,
-    auth: authReducer, // ✅ correct reducer
-    message: persistedReducer,
-  },
+  reducer:rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       // serializableCheck: false,

@@ -1,0 +1,126 @@
+"use client";
+
+import { useEffect } from "react";
+import { useSelector } from "react-redux";
+import { getSocket } from "@/utils/SocketIo/SocketIo";
+import { useHandleNewMsg } from "@/hooks/useHandleNewMsg";
+import { useUpdateMsg } from "@/hooks/useUpdatedMsg";
+import {
+  callActions,
+  peerActions,
+  videoActions,
+} from "@/store/slices/callSlice";
+import { getPeer } from "@/utils/callRelated/Peer";
+import { useDispatch } from "react-redux";
+
+const getRoomId = (userA: string, userB: string) =>
+  [userA, userB].sort().join("_");
+
+export default function SocketEventsProvider() {
+  const currentMobile = useSelector((state: any) => state.auth.currentMobile);
+  const dispatch = useDispatch();
+  const { handleNewMessage } = useHandleNewMsg();
+  const { handleUpdateMessage } = useUpdateMsg();
+
+  useEffect(() => {
+    if (!currentMobile) return;
+
+    const socket = getSocket(currentMobile);
+    if (!socket.connected) socket.connect();
+
+    const onReceiveMessage = async (payload: { data: any }) => {
+      const msg = payload.data;
+      if (!msg || msg.receiver !== currentMobile) return;
+      console.log("payload :",msg);
+      
+      const roomId = msg.roomId ?? getRoomId(msg.sender, msg.receiver);
+      await handleNewMessage(roomId, msg);
+
+      socket.emit("message_recived", {
+        msg_id: msg.id,
+        sender: msg.sender,
+        roomId,
+      });
+      handleUpdateMessage(roomId,msg.id,{"delivered":true})
+    };
+
+    const onMessageSent = async (data: {
+      msg_id: string;
+      roomId?: string;
+      isSent?: boolean;
+    }) => {
+      if (!data.roomId) return;
+      const { msg_id, ...remaining } = data;
+      handleUpdateMessage(data.roomId, msg_id, remaining);
+    };
+
+    const onMessageDelivered = async (data: {
+      msg_id: string;
+      roomId?: string;
+      delivered?: boolean;
+    }) => {
+      if (!data.roomId) return;
+      const { msg_id, ...remaining } = data;
+      console.log("message delivered");
+      
+      handleUpdateMessage(data.roomId, msg_id, remaining);
+    };
+
+    const onCallOffer = async (data: {
+      sender: string;
+      receiver: string;
+      offer: RTCSessionDescriptionInit;
+      roomId: string;
+    }) => {
+      if (data.receiver !== currentMobile) return;
+
+      const peer = getPeer(data.sender);
+
+      if (!navigator.mediaDevices?.getUserMedia) return;
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+        },
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+
+      dispatch(videoActions.setLocalStream(stream));
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
+      dispatch(peerActions.setOffer(data));
+
+      const answer = await peer.createAnswer();
+      const answerData = {
+        sender: currentMobile,
+        receiver: data.sender,
+        answer,
+        roomId: data.roomId,
+      };
+      await peer.setLocalDescription(answer);
+      dispatch(peerActions.setAnswer(answerData));
+      dispatch(callActions.incomingCall());
+    };
+
+    socket.on("receive_message", onReceiveMessage);
+    socket.on("message_sent", onMessageSent);
+    socket.on("message_delivered", onMessageDelivered);
+    socket.on("call-offer", onCallOffer);
+
+    return () => {
+      socket.off("receive_message", onReceiveMessage);
+      socket.off("message_sent", onMessageSent);
+      socket.off("message_delivered", onMessageDelivered);
+      socket.off("call-offer", onCallOffer);
+    };
+  }, [currentMobile, dispatch, handleNewMessage, handleUpdateMessage]);
+
+  return null;
+}

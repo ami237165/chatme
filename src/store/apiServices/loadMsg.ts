@@ -9,7 +9,14 @@ export const loadmsg = baseApi.injectEndpoints({
         body: {roomId, from, to },
       }),
     }),
+    conversation:builder.mutation({
+        query:(data) =>({
+          url:"msgs/handleFirstMsg",
+          method:'POST',
+          body:data,
+        }),
+      })
   }),
 });
 
-export const { useLoadMessagesMutation } = loadmsg;
+export const { useLoadMessagesMutation,useConversationMutation } = loadmsg;

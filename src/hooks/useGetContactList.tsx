@@ -1,8 +1,8 @@
 import { useListQuery } from "@/store/apiServices/userApi";
 
-export const useGetContactList = (currentMobile,isAuthChecked) =>{
+export const useGetContactList = (userId,isAuthChecked) =>{
     
-        const { data, error, isLoading } = useListQuery(currentMobile, {
+        const { data, error, isLoading } = useListQuery(userId, {
             skip: !isAuthChecked,
           });
                 

@@ -25,4 +25,5 @@ export  interface MessageData {
     // Timestamps
     timestamp: number;
     roomId: string;
+    delivered?: boolean;
   }

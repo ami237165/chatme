@@ -16,6 +16,6 @@ export const baseApi = createApi({
     },
   }),
 
-  tagTypes: ["Contacts",'Profile','Messages'],
+  tagTypes: ["Connections",'Profile','Messages', "Requests"],
   endpoints: () => ({}),
 });

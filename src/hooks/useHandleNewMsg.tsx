@@ -26,6 +26,7 @@ export const useHandleNewMsg = () => {
           try {
             await saveMediaToIndexedDB(file.fileId, arrayBuffer);
           } catch (error) {
+            alert(`some error ${error}`)
                       }
 
           delete file.fileData; // ✅ Clean up for Redux

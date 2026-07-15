@@ -1,6 +1,6 @@
 import { AddFriend } from "@/interfaces/addFriend"
 import { ApiResponse } from "@/interfaces/response.InterFace"
-import { useAddFriendMutation } from "@/store/apiServices/friendApi"
+import { useAddFriendMutation, useResponseMutation } from "@/store/apiServices/friendApi"
 
 export const useAddFriend = () =>{
     const [addfriend] = useAddFriendMutation()
@@ -9,4 +9,12 @@ export const useAddFriend = () =>{
 
     }
     return {addUser}
+}
+
+export const useResponse = () =>{
+    const [response] = useResponseMutation();
+    const respToReq = async (data):Promise<ApiResponse> =>{
+        return await response(data).unwrap()
+    }
+    return {respToReq}
 }

@@ -10,17 +10,18 @@ interface SearchContactsProps {
   isAuthChecked:boolean
 }
 
-const SearchContacts: React.FC<SearchContactsProps> = ({ query,isAuthChecked }) => {
+const SearchContacts: React.FC<SearchContactsProps> = ({ query,isAuthChecked }) => {  
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
 
   const [debouncedQuery] = useDebounce(query, 400);
 
   const { data, isLoading, error } = useSearchQuery(debouncedQuery, {
     skip: debouncedQuery.length < 1, // only search if >=1 char
-  });
+  });  
 
   const users = debouncedQuery.length < 2 ? [] : data?.data ?? [];
-
+  console.log("users: ",users);
+  
   if (isLoading)
     return <p className="mt-2 text-sm text-gray-500">Searching...</p>;
   if (error) return <p className="mt-2 text-sm text-red-500">Error occurred</p>;

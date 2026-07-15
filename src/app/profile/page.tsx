@@ -1,6 +1,7 @@
 "use client";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
-import { store } from "@/store";
+import { persistor, store } from "@/store";
+import { resetStore } from "@/store/resetAction";
 import { clearMessages } from "@/store/slices/message.slice";
 import ProtectedRoutes from "@/utils/ProtectedRoutes";
 import { getSocket } from "@/utils/SocketIo/SocketIo";
@@ -19,15 +20,18 @@ export default function ProfilePage() {
     setdetails(val.payload);
   }, [token]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // ✅ Clear tokens, Redux state, IndexedDB if needed
-    localStorage.clear(); // or specific keys
+    // or specific keys
     indexedDB.deleteDatabase("ChatMediaDB"); // optional
     indexedDB.deleteDatabase("localforage"); // optional
     let socket = getSocket(currentMobile);
-    store.dispatch(clearMessages());
     socket.close()
-    router.push("/login"); // or your auth screen
+    store.dispatch(clearMessages());
+    store.dispatch(resetStore());
+    await persistor.purge()
+    await router.push("/login"); // or your auth screen
+    localStorage.clear();
   };
 
   return (

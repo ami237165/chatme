@@ -7,23 +7,28 @@ import { setContacts } from "@/store/slices/slice";
 import { getSocket } from "@/utils/SocketIo/SocketIo";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
 import { Dialog } from "@headlessui/react";
-import { Plus } from "lucide-react";
+import { Heart, Plus } from "lucide-react";
 import { useGetContactList } from "@/hooks/useGetContactList";
 import SearchContacts from "@/components/SearchContacts";
+import Requests from "@/components/Requests";
+import FriendList from "@/components/FriendList";
+import { addFriend } from "@/store/slices/friends.slice";
 
 const Page = () => {
   const router = useRouter();
   const dispatch = useDispatch();
   const token = useSelector((state: any) => state.auth.access_token);
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
+  const currentUser = useSelector((state: any) => state.auth.currentUser);
   // const contacts = useSelector((state: any) => state.auth.contacts);
 
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const { data, error, isLoading } = useGetContactList(
-    currentMobile,
-    isAuthChecked
+    JSON.parse(currentUser).id,
+    isAuthChecked,
   );
+
   const [query, setQuery] = useState("");
   useEffect(() => {
     if (!token) {
@@ -33,14 +38,18 @@ const Page = () => {
     setIsAuthChecked(true);
     const socket = getSocket(currentMobile);
     if (!socket.connected) socket.connect();
-      }, [token, router]);
+  }, [token, router]);
   useEffect(() => {
-    if (data) {
-      
+    if (data?.data) {
+      dispatch(addFriend(data?.data));
       dispatch(
         setContacts(
-          data?.data.filter((user: any) => user?.mobileNumber !== currentMobile)
-        )
+          data && data.length > 0
+            ? data?.data.filter(
+                (user: any) => user?.mobileNumber !== currentMobile,
+              )
+            : [],
+        ),
       );
     }
   }, [data, dispatch]);
@@ -49,9 +58,10 @@ const Page = () => {
     router.push(`/chat/${mobile}`);
   };
 
-  const filteredUsers = data?.data.filter(
-    (user: any) => user?.mobileNumber !== currentMobile
-  );
+  const filteredUsers =
+    data && data.length > 0
+      ? data?.data.filter((user: any) => user?.mobileNumber !== currentMobile)
+      : [];
 
   if (!isAuthChecked) return null;
   if (isLoading)
@@ -65,7 +75,6 @@ const Page = () => {
     setInviteOpen(false);
     setQuery("");
   };
-
   return (
     <AnimatedPageWrapper>
       <ProtectedRoutes>
@@ -73,12 +82,23 @@ const Page = () => {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-4 bg-gray-800 text-white shadow-md rounded-b-xl">
             <h1 className="text-xl font-semibold">Chats</h1>
-            <div
-              className="w-9 h-9 bg-gray-700 rounded-full cursor-pointer flex items-center justify-center shadow-md hover:bg-gray-600 transition"
-              onClick={() => router.push("/profile")}
-              title="My Profile"
-            >
-              <span className="font-bold">P</span>
+            <div className="flex items-center space-x-4">
+              <div
+                onClick={() => router.push("/favorites")}
+                className="cursor-pointer"
+              >
+                <Heart className="w-6 h-6 text-grey-500" />
+              </div>
+
+              <div
+                className="w-9 h-9 bg-gray-700 rounded-full cursor-pointer flex items-center justify-center shadow-md hover:bg-gray-600 transition"
+                onClick={() => router.push("/profile")}
+                title="My Profile"
+              >
+                <span className="font-bold">
+                  {JSON.parse(currentUser).name.charAt(0) || "P"}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -162,6 +182,10 @@ const Page = () => {
               </div>
             </Dialog.Panel>
           </Dialog>
+          <div className="p-4">
+            <FriendList  />
+            <Requests />
+          </div>
         </div>
       </ProtectedRoutes>
     </AnimatedPageWrapper>

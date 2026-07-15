@@ -4,13 +4,22 @@ export const friendApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     addFriend: builder.mutation({
       query: (data) => ({
-        url: "users/addFriend",
+        url: "requests",
         method: "POST",
         body: data,
       }),
-      invalidatesTags: ["Contacts"],
+      invalidatesTags: ["Connections"],
     }),
+    response:builder.mutation({
+      query:(data) =>({
+        url:'requests/response',
+        method:'POST',
+        body:data
+      }),    
+    })
   }),
 });
 
-export const { useAddFriendMutation } = friendApi;
+
+
+export const { useAddFriendMutation,useResponseMutation } = friendApi;

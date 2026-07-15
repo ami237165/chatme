@@ -3,12 +3,12 @@ import { baseApi } from "./baseApi";
 export const userApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     list: builder.query<any, string>({
-      query: (mobileNumber) => ({
-        url: "users/getContactList",
+      query: (userId) => ({
+        url: "connections/list",
         method: "POST",
-        body: { mobileNumber },
+        body: { userId },
       }),
-      providesTags: ["Contacts"],
+      providesTags: ["Connections"],
     }),
 
     findOne: builder.query<any, string>({

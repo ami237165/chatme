@@ -2,7 +2,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 interface FileAttachment {
   fileName: string;
   fileType: string;
-  fileId: string;// base64 or blob URL
+  fileId: string; // base64 or blob URL
 }
 interface MessageData {
   id: string;
@@ -23,6 +23,7 @@ interface MessageData {
   // Timestamps
   timestamp: number;
   roomId: string;
+  delivered?:boolean;
 }
 interface Conversations {
   [roomId: string]: MessageData[];
@@ -34,22 +35,39 @@ const messageSlice = createSlice({
   reducers: {
     addMessage(
       state,
-      action: PayloadAction<{ roomId: string; message: MessageData }>
+      action: PayloadAction<{ roomId: string; message: MessageData }>,
     ) {
       const { roomId, message } = action.payload;
       if (!state[roomId]) {
         state[roomId] = [];
       }
       // 🚨 If msg already exists → ignore
-      if (state[roomId].some(m => m.id === message.id)) {
+      if (state[roomId].some((m) => m.id === message.id)) {
         return;
       }
       state[roomId].push(message);
     },
-     clearMessages(state) {
+    updateMessage(
+      state,
+      action: PayloadAction<{
+        roomId: string;
+        messageId: string;
+        updates: Partial<MessageData>;
+      }>,
+    ) {
+      const { roomId, messageId, updates } = action.payload;
+
+      const message = state[roomId]?.find((m) => m.id === messageId);
+      console.log("message found",message);
+      
+      if (!message) return;
+
+      Object.assign(message, updates);
+    },
+    clearMessages(state) {
       return initialState; // resets to empty object {}
-    }
+    },
   },
 });
-export const { addMessage,clearMessages } = messageSlice.actions;
+export const { addMessage, clearMessages,updateMessage } = messageSlice.actions;
 export default messageSlice.reducer;

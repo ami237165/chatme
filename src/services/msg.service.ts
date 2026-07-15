@@ -9,3 +9,12 @@ export const useLoadMessagesService = () => {
 
   return { loadMessages };
 };
+export const useConversationService = () => {
+  const [conversation] = useLoadMessagesMutation();
+
+  const createConvMetadata = async (data) => {
+    return await conversation(data).unwrap();
+  };
+
+  return { createConvMetadata };
+};
