@@ -1,29 +1,26 @@
 export interface FileAttachment {
-    fileName: string;
-    fileType: string;
-    fileData?:any;
-    fileId: string; // base64 or blob URL
-    previewUrl?:any
-  }
+  fileName: string;
+  fileType: string;
+  fileId: string;
+  objectKey?: string;
+  uploadProgress?: number;
+  downloadProgress?: number;
+  fileData?: File;
+  previewUrl?: string;
+}
 
-export  interface MessageData {
-    id: string;
-    sender: string;
-    receiver: string;
-    // Text message support
-    text?: string | null;
-    hasText: boolean;
-
-    // File message support
-    files?: FileAttachment[];
-    hasFiles: boolean;
-
-    // UI related flags (optional/future)
-    isUploading?: boolean;
-    isRead?: boolean;
-    isSent?: boolean;
-    // Timestamps
-    timestamp: number;
-    roomId: string;
-    delivered?: boolean;
-  }
+export interface MessageData {
+  id: string;
+  sender: string;
+  receiver: string;
+  text?: string | null;
+  hasText: boolean;
+  files?: FileAttachment[];
+  hasFiles: boolean;
+  isUploading?: boolean;
+  isRead?: boolean;
+  isSent?: boolean;
+  timestamp: number;
+  roomId: string;
+  delivered?: boolean;
+}

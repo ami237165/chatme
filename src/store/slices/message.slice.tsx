@@ -2,7 +2,10 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 interface FileAttachment {
   fileName: string;
   fileType: string;
-  fileId: string; // base64 or blob URL
+  fileId: string;
+  objectKey?: string;
+  uploadProgress?: number;
+  downloadProgress?: number;
 }
 interface MessageData {
   id: string;
@@ -58,15 +61,34 @@ const messageSlice = createSlice({
       const { roomId, messageId, updates } = action.payload;
 
       const message = state[roomId]?.find((m) => m.id === messageId);
-      
+
       if (!message) return;
 
       Object.assign(message, updates);
+    },
+    updateFileProgress(
+      state,
+      action: PayloadAction<{
+        roomId: string;
+        messageId: string;
+        fileId: string;
+        uploadProgress?: number;
+        objectKey?: string;
+      }>,
+    ) {
+      const { roomId, messageId, fileId, uploadProgress, objectKey } =
+        action.payload;
+      const message = state[roomId]?.find((m) => m.id === messageId);
+      const file = message?.files?.find((f) => f.fileId === fileId);
+      if (!file) return;
+      if (uploadProgress !== undefined) file.uploadProgress = uploadProgress;
+      if (objectKey) file.objectKey = objectKey;
     },
     clearMessages(state) {
       return initialState; // resets to empty object {}
     },
   },
 });
-export const { addMessage, clearMessages,updateMessage } = messageSlice.actions;
+export const { addMessage, clearMessages, updateMessage, updateFileProgress } =
+  messageSlice.actions;
 export default messageSlice.reducer;

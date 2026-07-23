@@ -20,7 +20,7 @@ export default function SocketEventsProvider() {
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
   const dispatch = useDispatch();
   const { handleNewMessage } = useHandleNewMsg();
-  const { handleUpdateMessage } = useUpdateMsg();
+  const { handleUpdateMessage, handleUpdateFileProgress } = useUpdateMsg();
 
   useEffect(() => {
     if (!currentMobile) return;
@@ -71,9 +71,45 @@ export default function SocketEventsProvider() {
     }) => {
       if (!data.roomId) return;
       const { msg_id, ...remaining } = data;
-      console.log("message delivered");
-
       handleUpdateMessage(data.roomId, msg_id, remaining);
+    };
+
+    const onUploadProgress = (data: {
+      messageId?: string;
+      roomId?: string;
+      fileId: string;
+      progress: number;
+      phase: string;
+      objectKey?: string;
+    }) => {
+      if (!data.roomId || !data.messageId) return;
+      console.log("here in ",data.roomId,data.messageId);
+      
+      handleUpdateFileProgress(
+        data.roomId,
+        data.messageId,
+        data.fileId,
+        data.progress,
+        data.objectKey,
+      );
+    };
+
+    const onMessageMediaReady = async (data: {
+      msg_id: string;
+      roomId?: string;
+      isUploading?: boolean;
+      files?: Array<{
+        fileId: string;
+        fileName: string;
+        fileType: string;
+        objectKey: string;
+      }>;
+    }) => {
+      if (!data.roomId) return;
+      handleUpdateMessage(data.roomId, data.msg_id, {
+        isUploading: false,
+        files: data.files,
+      });
     };
 
     const onCallOffer = async (data: {
@@ -124,6 +160,8 @@ export default function SocketEventsProvider() {
     socket.on("message_delivered", onMessageDelivered);
     socket.on("call-offer", onCallOffer);
     socket.on("message_red", onMessageRead);
+    socket.on("upload_progress", onUploadProgress);
+    socket.on("message_media_ready", onMessageMediaReady);
 
     return () => {
       socket.off("receive_message", onReceiveMessage);
@@ -131,8 +169,10 @@ export default function SocketEventsProvider() {
       socket.off("message_delivered", onMessageDelivered);
       socket.off("call-offer", onCallOffer);
       socket.off("message_red", onMessageRead);
+      socket.off("upload_progress", onUploadProgress);
+      socket.off("message_media_ready", onMessageMediaReady);
     };
-  }, [currentMobile, dispatch, handleNewMessage, handleUpdateMessage]);
+  }, [currentMobile, dispatch, handleNewMessage, handleUpdateMessage, handleUpdateFileProgress]);
 
   return null;
 }

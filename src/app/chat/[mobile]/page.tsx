@@ -21,12 +21,14 @@ import { useHandleVCall } from "../../../hooks/useHandleVCall";
 import { usePresence } from "@/hooks/usePresence";
 import { formatLastSeen } from "@/utils/userActivity/lastSeen";
 import { useConversationService, useLoadMessagesService } from "@/services/msg.service";
-import { loadmsg } from "@/store/apiServices/loadMsg";
-import { saveMediaToIndexedDB } from "@/lib/indexdb";
-import { m } from "framer-motion";
-import { useLayoutEffect } from "react";
 import { RootState } from "@/store";
 import { User } from "@/store/slices/friends.slice";
+import {
+  completeMessageUpload,
+  uploadMediaFile,
+} from "@/services/media.service";
+import { useUpdateMsg } from "@/hooks/useUpdatedMsg";
+import toast from "react-hot-toast";
 
 const ChatPage = () => {
   const router = useRouter();
@@ -51,6 +53,7 @@ const ChatPage = () => {
   const messages = useSelector(selectMessagesByRoomId(roomId));
   const [input, setInput] = useState("");
   const { handleNewMessage } = useHandleNewMsg();
+  const { handleUpdateMessage, handleUpdateFileProgress } = useUpdateMsg();
   const {
     fileInputRef,
     handleFileChange,
@@ -85,13 +88,6 @@ const ChatPage = () => {
       });
 
       [...fetched].reverse().forEach((msg) => {
-        if (msg.hasFiles && msg.files.length !== 0) {
-          msg.files?.map(
-            async (file, idx) =>
-              await saveMediaToIndexedDB(file.fileId, file.fileData.data)
-          );
-        }
-        // const exists = existingMsgs.some(m => m.id === msg.id);
         handleNewMessage(roomId, msg);
       });
       requestAnimationFrame(() => {
@@ -145,41 +141,123 @@ const ChatPage = () => {
     await removedFileFromDB(index);
   };
 
-  const handlesendMessage = () => {
+  const handlesendMessage = async () => {
     if (input.trim() === "" && pendingFiles.length === 0) return;
+
+    const hasFiles = pendingFiles.length > 0;
     const msg: MessageData = {
       id: uuidv4(),
       sender: currentMobile,
       receiver: mobile,
       text: input.trim() === "" ? null : input.trim(),
       hasText: input.trim() !== "",
-      hasFiles: pendingFiles.length > 0,
-      files: pendingFiles.length > 0 ? pendingFiles : undefined,
+      hasFiles,
+      files: hasFiles
+        ? pendingFiles.map(({ fileName, fileType, fileId }) => ({
+            fileName,
+            fileType,
+            fileId,
+            uploadProgress: 0,
+          }))
+        : undefined,
       timestamp: Date.now(),
       roomId: currentRoomId,
       isRead: false,
       isSent: false,
-      isUploading: false,
+      isUploading: hasFiles,
       delivered: false,
     };
 
-    sendMessage(msg);
-    // Reset input and files
+    const filesToUpload = [...pendingFiles];
     setInput("");
     setPendingFiles([]);
+
+    await sendMessage(msg, filesToUpload);
   };
-  //send msg
-  const sendMessage = async (msg: MessageData) => {
+
+  const sendMessage = async (
+    msg: MessageData,
+    filesToUpload: typeof pendingFiles = [],
+  ) => {
     const socket = getSocket(currentMobile);
-    // let metadata = await createConvMetadata(currentChat.connectionId);
-    // if(metadata.statusCode == 201 || metadata.statusCode == 200 && metadata.success == true){
-      socket.emit("send_message", msg);
+
     await handleNewMessage(msg.roomId, msg);
 
-    // }else{
-    //   alert("cant send msg")
-    // }
-    setInput("");
+    const socketPayload: MessageData = {
+      ...msg,
+      files: msg.files?.map(({ fileName, fileType, fileId }) => ({
+        fileName,
+        fileType,
+        fileId,
+      })),
+    };
+
+    socket.emit("send_message", {
+      ...socketPayload,
+      timestamp: String(socketPayload.timestamp),
+    });
+
+    if (!msg.hasFiles || !filesToUpload.length) return;
+
+    try {
+      const uploadedFiles: Array<{
+        fileId: string;
+        fileName: string;
+        fileType: string;
+        objectKey: string;
+      }> = [];
+
+      for (const file of filesToUpload) {
+        if (!file.fileData) continue;
+
+        const result = await uploadMediaFile(
+          file.fileData,
+          file.fileId,
+          msg.id,
+          msg.roomId,
+          (progress) => {
+            handleUpdateFileProgress(msg.roomId, msg.id, file.fileId, progress);
+          },
+        );
+
+        uploadedFiles.push({
+          fileId: file.fileId,
+          fileName: file.fileName,
+          fileType: file.fileType,
+          objectKey: result.objectKey,
+        });
+
+        handleUpdateFileProgress(
+          msg.roomId,
+          msg.id,
+          file.fileId,
+          100,
+          result.objectKey,
+        );
+      }
+
+      await completeMessageUpload({
+        messageId: msg.id,
+        roomId: msg.roomId,
+        sender: msg.sender,
+        receiver: msg.receiver,
+        text: msg.text,
+        hasText: msg.hasText,
+        timestamp: msg.timestamp,
+        files: uploadedFiles,
+      });
+
+      handleUpdateMessage(msg.roomId, msg.id, {
+        isUploading: false,
+        files: uploadedFiles.map((file) => ({
+          ...file,
+          uploadProgress: 100,
+        })),
+      });
+    } catch {
+      toast.error("Failed to upload media");
+      handleUpdateMessage(msg.roomId, msg.id, { isUploading: false });
+    }
   };
 
   const handleBackToChatList = () => {
@@ -270,7 +348,12 @@ const ChatPage = () => {
                 )}
                 {msg.hasFiles &&
                   msg.files?.map((file, idx) => (
-                    <MediaPreviewLoader key={idx} file={file} />
+                    <MediaPreviewLoader
+                      key={idx}
+                      file={file}
+                      isOwnMessage={msg.sender === currentMobile}
+                      isUploading={msg.isUploading}
+                    />
                   ))}
               </ChatMessageBubble>
             ))}
