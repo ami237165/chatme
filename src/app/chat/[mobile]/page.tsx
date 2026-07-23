@@ -9,9 +9,11 @@ import { v4 as uuidv4 } from "uuid";
 import { Toaster } from "react-hot-toast";
 import { MessageData } from "@/interfaces/meseage_related/messageInterFace";
 import { selectMessagesByRoomId } from "@/utils/selectors/messages";
-import { ArrowLeft, Check, CheckCheck, Clock, Paperclip, SendHorizontal, Video } from "lucide-react";
+import { ArrowLeft, Paperclip, SendHorizontal, Video } from "lucide-react";
 import { MediaPreviewLoader } from "@/components/MediaPreviewLoader";
 import { MediaPreview } from "@/components/MediaPreview";
+import MessageTextContent from "@/components/chat/MessageTextContent";
+import ChatMessageBubble from "@/components/chat/ChatMessageBubble";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
 import { useHandleNewMsg } from "../../../hooks/useHandleNewMsg";
 import { useHandleFileChange } from "../../../hooks/useHandleFileChange";
@@ -34,6 +36,7 @@ const ChatPage = () => {
   let contact = useSelector((state: any) => state.auth.contacts);
   const { loadMessages } = useLoadMessagesService();
   const msgContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
   const initialLoadDone = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -125,6 +128,10 @@ const ChatPage = () => {
     const socket = getSocket(currentMobile);
     if (!socket.connected) socket.connect();
   }, [currentMobile]);
+
+  useEffect(() => {
+    setScrollRoot(msgContainerRef.current);
+  }, [isClient, messages.length]);
 
   if (!isClient) return null;
   // Trigger hidden file input
@@ -247,22 +254,25 @@ const ChatPage = () => {
             className="msg-body flex-1 p-1 overflow-scroll"
           >
             {messages.map((msg) => (
-              <div
+              <ChatMessageBubble
                 key={msg.id}
-                className={`w-fit px-4 py-2 my-1 rounded-xs break-words max-w-[80%] min-w-[3rem] shadow-gray-300 z-30 ${
-                  msg.sender === currentMobile
-                    ? "bg-gray-600 text-white self-end ml-auto"
-                    : "bg-white text-gray-800 self-start mr-auto"
-                }`}
+                message={msg}
+                currentMobile={currentMobile}
+                roomId={roomId}
+                scrollRoot={scrollRoot}
               >
-                {/* Show text */}
-                {msg.text && <p>{msg.text} - {msg.delivered && msg.delivered ? <CheckCheck/> : <Check/>}</p>}
-                {/* Show file previews if they exist */}
+                {msg.text && (
+                  <MessageTextContent
+                    text={msg.text}
+                    message={msg}
+                    currentMobile={currentMobile}
+                  />
+                )}
                 {msg.hasFiles &&
                   msg.files?.map((file, idx) => (
                     <MediaPreviewLoader key={idx} file={file} />
                   ))}
-              </div>
+              </ChatMessageBubble>
             ))}
             <div ref={messagesEndRef} />
           </div>

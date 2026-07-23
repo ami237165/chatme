@@ -47,6 +47,18 @@ const authSlice = createSlice({
         localStorage.setItem("currentUser", (action.payload));
       }
     },
+    clearAuth: (state) => {
+      state.access_token = null;
+      state.contacts = [];
+      state.currentMobile = null;
+      state.currentUser = {};
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("contacts");
+        localStorage.removeItem("currentMobile");
+        localStorage.removeItem("currentUser");
+      }
+    },
    
   },
 });
@@ -54,7 +66,8 @@ export const {
   setToken,
   setContacts,
   setCurrentMobile,
-  setCurrentUser
+  setCurrentUser,
+  clearAuth,
 } = authSlice.actions;
 
 export default authSlice.reducer;

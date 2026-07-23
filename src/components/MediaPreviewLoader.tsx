@@ -49,7 +49,7 @@ export function MediaPreviewLoader({ file }: any) {
       {isImage && (
         <img
           src={blobUrl}
-          alt={file?.fileName || file?.filename}
+          alt={file?.fileName || file?.fileName}
           className="w-full sm:w-auto max-w-full sm:max-w-[300px] md:max-w-[400px] rounded-md border object-contain"
         />
       )}
@@ -76,7 +76,7 @@ export function MediaPreviewLoader({ file }: any) {
           download={file.fileName}
           className="text-blue-500 text-sm break-all"
         >
-          Download {file.fileName || file?.filename}
+          Download {file.fileName || file?.fileName}
         </a>
       )}
     </div>

@@ -2,23 +2,44 @@ import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null;
 
-export const getSocket = (mobile: any):Socket => {
-      if(!socket){
-            
-         socket = io(process.env.NEXT_PUBLIC_SOCKET_MAIN_URL, {
+export const getSocket = (mobile: any): Socket => {
+  if (!socket) {
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_MAIN_URL, {
       transports: ["websocket"],
       secure: true,
       autoConnect: false,
-      query:{userId:mobile}
+      query: { userId: mobile },
     });
-    }
-    return socket
-}
-
-//close the socket
-export const closeSocket = () => {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
   }
+  return socket;
+};
+
+export const closeSocket = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (!socket) {
+      resolve();
+      return;
+    }
+
+    const activeSocket = socket;
+    socket = null;
+
+    const finish = () => resolve();
+
+    if (!activeSocket.connected) {
+      finish();
+      return;
+    }
+
+    activeSocket.once("disconnect", finish);
+
+    // Tell the server to mark offline before the page unloads on logout.
+    activeSocket.emit("go-offline");
+
+    window.setTimeout(() => {
+      activeSocket.disconnect();
+    }, 150);
+
+    window.setTimeout(finish, 2000);
+  });
 };

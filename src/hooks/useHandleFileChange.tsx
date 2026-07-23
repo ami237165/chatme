@@ -11,13 +11,27 @@ export const useHandleFileChange = () => {
     if (!files || files.length === 0) return;
 
     const convertToPreview = async (file: File): Promise<FileAttachment> => {
+      console.log("in convertToPreview",Date.now());
+      
       const fileId = `file_${crypto.randomUUID()}`; // ✅ Unique ID
+      console.log();
+      
       const blobUrl = URL.createObjectURL(file); // ✅ For preview
-      try {
-        await saveMediaToIndexedDB(fileId, file);
-      } catch (error) {
+      console.log("in convertToPreview after createObjectURL",Date.now());
+
+      // try {
+      //   await saveMediaToIndexedDB(fileId, file).then((res) =>{
+      //     console.log("res of saveMediaToIndexedDB :",res,fileId);
+          
+      //   }).catch((err) =>{
+      //     console.log("err of saveMediaToIndexedDB :",err);
+          
+      //   });
+
+      // } catch (error) {
+      //   console.log("error while saveMediaToIndexedDB :",error);
         
-      }
+      // }
       // await saveMediaToIndexedDB(fileId, file); // ✅ Save to IndexedDB
 
       return {

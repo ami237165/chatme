@@ -19,6 +19,7 @@ export const usePresence = (
 
   useEffect(() => {
     if (!currentMobile || !otherUserMobile) return;
+console.log("hitting usePresence");
 
     const socket = getSocket(currentMobile);
 

@@ -42,3 +42,15 @@ export const  decodeJWT = (token:string) => {
     signature
   };
 }
+
+export const tryDecodeJWT = (token: unknown) => {
+  if (typeof token !== "string" || !token.trim()) {
+    return null;
+  }
+
+  try {
+    return decodeJWT(token);
+  } catch {
+    return null;
+  }
+};

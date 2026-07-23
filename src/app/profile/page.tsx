@@ -1,37 +1,26 @@
 "use client";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
-import { persistor, store } from "@/store";
-import { resetStore } from "@/store/resetAction";
-import { clearMessages } from "@/store/slices/message.slice";
 import ProtectedRoutes from "@/utils/ProtectedRoutes";
-import { getSocket } from "@/utils/SocketIo/SocketIo";
-import { decodeJWT } from "@/utils/token_decoder";
+import { logoutUser } from "@/utils/logout";
+import { tryDecodeJWT } from "@/utils/token_decoder";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+
 export default function ProfilePage() {
   const router = useRouter();
   const token = useSelector((state: any) => state.auth.access_token);
-    const currentMobile = useSelector((state: any) => state.auth.currentMobile);
-  
+
   const [details, setdetails] = useState<any>();
+
   useEffect(() => {
-    let val = decodeJWT(token);
-    setdetails(val.payload);
+    const decoded = tryDecodeJWT(token);
+    setdetails(decoded?.payload ?? null);
   }, [token]);
 
   const handleLogout = async () => {
-    // ✅ Clear tokens, Redux state, IndexedDB if needed
-    // or specific keys
-    indexedDB.deleteDatabase("ChatMediaDB"); // optional
-    indexedDB.deleteDatabase("localforage"); // optional
-    let socket = getSocket(currentMobile);
-    socket.close()
-    store.dispatch(clearMessages());
-    store.dispatch(resetStore());
-    await persistor.purge()
-    await router.push("/login"); // or your auth screen
-    localStorage.clear();
+    await logoutUser();
+    router.replace("/login");
   };
 
   return (

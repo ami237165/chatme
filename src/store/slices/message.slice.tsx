@@ -58,7 +58,6 @@ const messageSlice = createSlice({
       const { roomId, messageId, updates } = action.payload;
 
       const message = state[roomId]?.find((m) => m.id === messageId);
-      console.log("message found",message);
       
       if (!message) return;
 

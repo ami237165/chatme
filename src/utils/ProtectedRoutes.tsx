@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { decodeJWT } from "@/utils/token_decoder";
+import { tryDecodeJWT } from "@/utils/token_decoder";
 import SocketEventsProvider from "@/components/SocketEventsProvider";
 import GlobalCallOverlay from "@/components/GlobalCallOverlay";
 
@@ -15,16 +15,12 @@ const ProtectedRoutes = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     setIsClient(true);
     if (!token) {
-      router.push("/login");
+      router.replace("/login");
     } else {
-      try {
-        const decoded: any = decodeJWT(token);
-        if (decoded.payload?.exp * 1000 < Date.now()) {
-          localStorage.removeItem("access_token");
-          router.push("/login");
-        }
-      } catch (err) {
-        router.push("/login");
+      const decoded = tryDecodeJWT(token);
+      if (!decoded || decoded.payload?.exp * 1000 < Date.now()) {
+        localStorage.removeItem("access_token");
+        router.replace("/login");
       }
     }
   }, [token]);

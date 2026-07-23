@@ -31,8 +31,6 @@ export default function SocketEventsProvider() {
     const onReceiveMessage = async (payload: { data: any }) => {
       const msg = payload.data;
       if (!msg || msg.receiver !== currentMobile) return;
-      console.log("payload :",msg);
-      
       const roomId = msg.roomId ?? getRoomId(msg.sender, msg.receiver);
       await handleNewMessage(roomId, msg);
 
@@ -41,7 +39,7 @@ export default function SocketEventsProvider() {
         sender: msg.sender,
         roomId,
       });
-      handleUpdateMessage(roomId,msg.id,{"delivered":true})
+      handleUpdateMessage(roomId, msg.id, { delivered: true });
     };
 
     const onMessageSent = async (data: {
@@ -62,7 +60,19 @@ export default function SocketEventsProvider() {
       if (!data.roomId) return;
       const { msg_id, ...remaining } = data;
       console.log("message delivered");
-      
+
+      handleUpdateMessage(data.roomId, msg_id, remaining);
+    };
+
+    const onMessageRead = async (data: {
+      msg_id: string;
+      roomId?: string;
+      isRead?: boolean;
+    }) => {
+      if (!data.roomId) return;
+      const { msg_id, ...remaining } = data;
+      console.log("message delivered");
+
       handleUpdateMessage(data.roomId, msg_id, remaining);
     };
 
@@ -113,12 +123,14 @@ export default function SocketEventsProvider() {
     socket.on("message_sent", onMessageSent);
     socket.on("message_delivered", onMessageDelivered);
     socket.on("call-offer", onCallOffer);
+    socket.on("message_red", onMessageRead);
 
     return () => {
       socket.off("receive_message", onReceiveMessage);
       socket.off("message_sent", onMessageSent);
       socket.off("message_delivered", onMessageDelivered);
       socket.off("call-offer", onCallOffer);
+      socket.off("message_red", onMessageRead);
     };
   }, [currentMobile, dispatch, handleNewMessage, handleUpdateMessage]);
 
