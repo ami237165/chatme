@@ -1,3 +1,4 @@
+import { GetPresignedUrlDTO } from "@/interfaces/meseage_related/messageInterFace";
 import { store } from "@/store";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
@@ -12,12 +13,30 @@ function getAuthHeaders(): Record<string, string> {
   if (mobile) headers["x-user-id"] = mobile;
   return headers;
 }
+export async function getPresignedUrl(payload:{objectName: string,
+  expires?: number}):Promise<any>{
+    console.log("hwhghd",payload);
+    
+  const res = await fetch(`${API_BASE}uploads/getpresignedputurl`,{
+    method:'POST',
+    headers:{
+    "Content-Type": "application/json",
+  },
+    body:JSON.stringify({
+      objectName:payload.objectName,
+      expires:payload.expires
+    }),
+  })
+  return await res.json()
+}
 
 export function uploadMediaFile(
+  res:string,
   file: File,
   fileId: string,
   messageId: string,
   roomId: string,
+  objectKey: string,
   onProgress?: ProgressCallback,
 ): Promise<{ objectKey: string; fileId: string }> {
   return new Promise((resolve, reject) => {
@@ -27,44 +46,43 @@ export function uploadMediaFile(
     formData.append("fileId", fileId);
     formData.append("messageId", messageId);
     formData.append("roomId", roomId);
+    const start = performance.now();
 
     xhr.upload.addEventListener("progress", (event) => {
       if (!event.lengthComputable || !onProgress) return;
       console.log("event.total :",event.total);
-      
+       console.log({
+    loaded: event.loaded,
+    total: event.total,
+    speed:
+      event.loaded / ((performance.now() - start) / 1000) / 1024 / 1024,
+  });
       onProgress(Math.round((event.loaded / event.total) * 100));
     });
-
+    
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const response = JSON.parse(xhr.responseText);
-          const data = response.data ?? response;
-          resolve({
-            objectKey: data.objectKey,
-            fileId: data.fileId,
-          });
-        } catch {
-          console.log("error");
-          
-          reject(new Error("Invalid upload response"));
-        }
+        console.log("comes in ststus",xhr.status);
+        
+        // MinIO returns an empty body on success — nothing to parse.
+        resolve({ objectKey, fileId });
         return;
-      }
-      console.log("error in last");
-      
+      }    
+      console.log("Upload failed with status ${xhr.status}");
+        
       reject(new Error(`Upload failed with status ${xhr.status}`));
     });
 
     xhr.addEventListener("error", () => reject(new Error("Upload failed")));
     xhr.addEventListener("abort", () => reject(new Error("Upload aborted")));
 
-    xhr.open("POST", `${API_BASE}uploads`);
-    const headers = getAuthHeaders();
-    Object.entries(headers).forEach(([key, value]) => {
-      xhr.setRequestHeader(key, value);
-    });
-    xhr.send(formData);
+    xhr.open("PUT",res);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    // const headers = getAuthHeaders();
+    // Object.entries(headers).forEach(([key, value]) => {
+    //   xhr.setRequestHeader(key, value);
+    // });
+    xhr.send(file);
   });
 }
 
@@ -109,7 +127,8 @@ export async function downloadMediaFile(
   const response = await fetch(`${API_BASE}uploads/${encodeURIComponent(objectKey)}`, {
     headers: getAuthHeaders(),
   });
-
+  console.log("objeckt key:",objectKey);
+  
   if (!response.ok) {
     throw new Error("Download failed");
   }

@@ -2,6 +2,7 @@ import { FileAttachment } from "@/interfaces/meseage_related/messageInterFace";
 import { deleteMediaFromIndexedDB, saveMediaToIndexedDB } from "@/lib/indexdb";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { v4 as uuidv4 } from "uuid";
 
 const MAX_FILE_SIZE = 300 * 1024 * 1024; // 100 MB
 console.log(MAX_FILE_SIZE);
@@ -24,10 +25,11 @@ export const useHandleFileChange = () => {
       const blobUrl = URL.createObjectURL(file);
 
       await saveMediaToIndexedDB(fileId, file);
-
+      const objectName = (file.name + `-`+ uuidv4()).replaceAll(' ','-')
       return {
         fileName: file.name,
         fileType: file.type,
+        objectName:objectName,
         previewUrl: blobUrl,
         fileData: file,
         fileId,

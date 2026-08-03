@@ -8,6 +8,7 @@ export const loadmsg = baseApi.injectEndpoints({
         method: "POST",
         body: {roomId, from, to },
       }),
+      invalidatesTags: ["Messages"],
     }),
     conversation:builder.mutation({
         query:(data) =>({

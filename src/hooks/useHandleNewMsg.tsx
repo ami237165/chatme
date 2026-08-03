@@ -8,10 +8,11 @@ export const useHandleNewMsg = () => {
   const handleNewMessage = async (roomId: string, msg: MessageData) => {
     const cleanMsg: MessageData = {
       ...msg,
-      files: msg.files?.map(({ fileName, fileType, fileId, objectKey, uploadProgress, downloadProgress }) => ({
+      files: msg.files?.map(({ fileName, fileType, fileId,objectName, objectKey, uploadProgress, downloadProgress }) => ({
         fileName,
         fileType,
         fileId,
+        objectName,
         objectKey,
         uploadProgress,
         downloadProgress,

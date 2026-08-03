@@ -100,6 +100,7 @@ export default function SocketEventsProvider() {
       isUploading?: boolean;
       files?: Array<{
         fileId: string;
+        objectName:string;
         fileName: string;
         fileType: string;
         objectKey: string;

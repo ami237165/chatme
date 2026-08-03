@@ -2,6 +2,7 @@ export interface FileAttachment {
   fileName: string;
   fileType: string;
   fileId: string;
+  objectName:string;
   objectKey?: string;
   uploadProgress?: number;
   downloadProgress?: number;
@@ -20,7 +21,14 @@ export interface MessageData {
   isUploading?: boolean;
   isRead?: boolean;
   isSent?: boolean;
-  timestamp: number;
+  timestamp: any;
   roomId: string;
   delivered?: boolean;
+}
+
+export interface GetPresignedUrlDTO {  
+  objectName: string;
+  expires?: number;
+  respHeaders?: any | Date;
+  requestDate?: Date;
 }

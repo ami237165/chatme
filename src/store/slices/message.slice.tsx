@@ -3,6 +3,7 @@ interface FileAttachment {
   fileName: string;
   fileType: string;
   fileId: string;
+  objectName:string;
   objectKey?: string;
   uploadProgress?: number;
   downloadProgress?: number;

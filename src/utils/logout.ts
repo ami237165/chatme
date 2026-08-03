@@ -23,6 +23,7 @@ const clearIndexedDatabases = () => {
     indexedDB.deleteDatabase("ChatMediaDB");
     indexedDB.deleteDatabase("localforage");
   } catch {
+    console.log("IndexedDB purge failed");
     // Storage can be blocked in incognito or private mode.
   }
 };

@@ -25,10 +25,12 @@ import { RootState } from "@/store";
 import { User } from "@/store/slices/friends.slice";
 import {
   completeMessageUpload,
+  getPresignedUrl,
   uploadMediaFile,
 } from "@/services/media.service";
 import { useUpdateMsg } from "@/hooks/useUpdatedMsg";
 import toast from "react-hot-toast";
+import { getMediaFromIndexedDB, saveMediaToIndexedDB } from "@/lib/indexdb";
 
 const ChatPage = () => {
   const router = useRouter();
@@ -67,37 +69,46 @@ const ChatPage = () => {
   const {createConvMetadata} = useConversationService();
   const presence = usePresence(currentMobile, mobile);
 
-  useEffect(() => {
-    if (!currentMobile || !mobile) return;
-    loadMsg();
-  }, [currentMobile, mobile]);
+  const hasLoadedOnce = useRef(false);
+
+useEffect(() => {
+  if (hasLoadedOnce.current) return;      // already ran once, skip forever
+  if (!currentMobile || !mobile) return;  // wait until values are ready
+
+  hasLoadedOnce.current = true;
+  loadMsg();
+}, [currentMobile, mobile]);
   const loadMsg = async () => {
     if (!currentMobile || !mobile || !roomId) return;
 
-    const existingMsgs = messages; // from Redux
-
-    const lastTimestamp = existingMsgs.length
-      ? existingMsgs[0].timestamp
+    // const existingMsgs = messages; // from Redux
+    // console.log("bbb :",messages[0].timestamp.toString());
+    
+    const lastTimestamp = messages.length > 0
+      ? Date.parse(messages[0].timestamp.toString())
       : Date.now();
 
     try {
       const fetched = await loadMessages({
         roomId,
-        from: Number(lastTimestamp),
+        from: lastTimestamp.valueOf(),
         to: Date.now() - 30 * 24 * 60 * 60 * 1000,
       });
-
-      [...fetched].reverse().forEach((msg) => {
-        handleNewMessage(roomId, msg);
+      console.log("fetched messages:", fetched);
+      [...fetched.data].reverse().forEach(async (msg) => {
+        await handleNewMessage(roomId, msg);
       });
-      requestAnimationFrame(() => {
-        const el = msgContainerRef.current;
-        if (el) {
-          el.scrollTop = el.scrollHeight;
-        }
-        initialLoadDone.current = true; // 🔥 IMPORTANT
-      });
-    } catch (error) {}
+      // requestAnimationFrame(() => {
+      //   const el = msgContainerRef.current;
+      //   if (el) {
+      //     el.scrollTop = el.scrollHeight;
+      //   }
+      //   initialLoadDone.current = true; // 🔥 IMPORTANT
+      // });
+    } catch (error) {
+      console.log("error in fetching :",error);
+      
+    }
   };
 
   // Helper to get roomId
@@ -153,10 +164,11 @@ const ChatPage = () => {
       hasText: input.trim() !== "",
       hasFiles,
       files: hasFiles
-        ? pendingFiles.map(({ fileName, fileType, fileId }) => ({
+        ? pendingFiles.map(({ fileName, fileType, fileId,objectName }) => ({
             fileName,
             fileType,
             fileId,
+            objectName,
             uploadProgress: 0,
           }))
         : undefined,
@@ -185,10 +197,11 @@ const ChatPage = () => {
 
     const socketPayload: MessageData = {
       ...msg,
-      files: msg.files?.map(({ fileName, fileType, fileId }) => ({
+      files: msg.files?.map(({ fileName, fileType, fileId,objectName }) => ({
         fileName,
         fileType,
         fileId,
+        objectName,
       })),
     };
 
@@ -204,17 +217,28 @@ const ChatPage = () => {
         fileId: string;
         fileName: string;
         fileType: string;
+        objectName:string;
         objectKey: string;
       }> = [];
 
       for (const file of filesToUpload) {
         if (!file.fileData) continue;
+        const res = await getPresignedUrl({
+          objectName:file.objectName,
+          expires:60
+        })
+        if(!res){
+          alert(res)
+        }
+        console.log("ttttttt :",res);
 
         const result = await uploadMediaFile(
+          res.data,
           file.fileData,
           file.fileId,
           msg.id,
           msg.roomId,
+          file.objectKey,
           (progress) => {
             handleUpdateFileProgress(msg.roomId, msg.id, file.fileId, progress);
           },
@@ -224,6 +248,7 @@ const ChatPage = () => {
           fileId: file.fileId,
           fileName: file.fileName,
           fileType: file.fileType,
+          objectName:file.objectName,
           objectKey: result.objectKey,
         });
 
@@ -265,7 +290,10 @@ const ChatPage = () => {
   };
 
   if (!isClient) return null;
-
+  console.log("pendingFiles :",pendingFiles);
+  
+  console.log("meeee : ",messages);
+  
   return (
     <AnimatedPageWrapper>
       <ProtectedRoutes>
@@ -331,9 +359,9 @@ const ChatPage = () => {
             ref={msgContainerRef}
             className="msg-body flex-1 p-1 overflow-scroll"
           >
-            {messages.map((msg) => (
+            {messages.map((msg,i) => (
               <ChatMessageBubble
-                key={msg.id}
+                key={i}
                 message={msg}
                 currentMobile={currentMobile}
                 roomId={roomId}

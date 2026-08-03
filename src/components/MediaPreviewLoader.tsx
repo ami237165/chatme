@@ -12,22 +12,22 @@ type Props = {
   isUploading?: boolean;
 };
 
-export function MediaPreviewLoader({
-  file,
-  isOwnMessage,
-  isUploading,
-}: Props) {
+export function MediaPreviewLoader({ file, isOwnMessage, isUploading }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(false);
 
   useEffect(() => {
+    console.log("lwgyctwygchwluchljwchjwkchkwchk:", file);
+
     if (!file?.fileId || !file?.fileType) return;
 
     let tempUrl: string | null = null;
 
     const loadLocalPreview = async () => {
+      console.log("insdie loadLocalPreview");
+
       try {
         const media = await getMediaFromIndexedDB(file.fileId);
         if (!media) return;
@@ -39,7 +39,7 @@ export function MediaPreviewLoader({
         tempUrl = URL.createObjectURL(blob);
         setBlobUrl(tempUrl);
       } catch {
-        // local preview unavailable
+        console.log("file not found");
       }
     };
 
@@ -49,19 +49,35 @@ export function MediaPreviewLoader({
       if (tempUrl) URL.revokeObjectURL(tempUrl);
     };
   }, [file.fileId, file.fileType]);
-
+  const triggerDownload = (url: string, fileName: string) => {
+    console.log("url:",url, "filename:",fileName);
+    
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
   const handleDownload = async () => {
-    if (!file.objectKey || isDownloading) return;
+    console.log("file.objectKey:", file.objectName);
+
+    if (!file.objectName || isDownloading) return;
 
     setIsDownloading(true);
     setDownloadError(false);
     setDownloadProgress(0);
 
     try {
-      const blob = await downloadMediaFile(file.objectKey, setDownloadProgress);
+      console.log("file.objectKey:", file.objectName);
+      const blob = await downloadMediaFile(
+        file.objectName,
+        setDownloadProgress,
+      );
       await saveMediaToIndexedDB(file.fileId, blob);
       const url = URL.createObjectURL(blob);
       setBlobUrl(url);
+      await triggerDownload(blobUrl,file.fileName)
     } catch {
       setDownloadError(true);
     } finally {
@@ -70,7 +86,8 @@ export function MediaPreviewLoader({
   };
 
   const uploadProgress = file.uploadProgress ?? 0;
-  const showUploadProgress = isOwnMessage && (isUploading || uploadProgress < 100);
+  const showUploadProgress =
+    isOwnMessage && (isUploading || uploadProgress < 100);
 
   if (showUploadProgress) {
     return (
@@ -87,7 +104,7 @@ export function MediaPreviewLoader({
     );
   }
 
-  if (!blobUrl && file.objectKey && !isOwnMessage) {
+  if (!blobUrl && file.objectName && !isOwnMessage) {
     return (
       <div className="mt-1 space-y-1">
         <p className="text-xs text-gray-300">{file.fileName}</p>
@@ -117,9 +134,9 @@ export function MediaPreviewLoader({
     );
   }
 
-  if (!blobUrl) {
-    return <p className="text-xs italic text-gray-400">Loading media...</p>;
-  }
+  // if (!blobUrl) {
+  //   return <p className="text-xs italic text-gray-400">Loading media...</p>;
+  // }
 
   const isImage = file.fileType.startsWith("image/");
   const isVideo = file.fileType.startsWith("video/");
@@ -151,22 +168,23 @@ export function MediaPreviewLoader({
           PDF: {file.fileName}
         </a>
       )}
-      {!isImage && !isVideo && !isPdf &&  !isOwnMessage && (
+      {!isImage && !isVideo && !isPdf && !isOwnMessage && (
         <a
           href={blobUrl}
-          download={file.fileName}
+          target="__blank"
+          // download={file.fileName}
           className="text-blue-500 text-sm break-all"
         >
           Download {file.fileName}
         </a>
       )}
-      {!isImage && !isVideo && !isPdf &&  isOwnMessage && (
+      {!isImage && !isVideo && !isPdf && isOwnMessage && (
         <a
-          // href={blobUrl}
+          href={blobUrl}
           // download={file.fileName}
           className="text-blue-500 text-sm break-all"
         >
-        {file.fileName}
+          {file.fileName}
         </a>
       )}
     </div>

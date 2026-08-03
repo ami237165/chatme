@@ -5,6 +5,7 @@ type FileAttachment = {
   fileName: string;
   fileType: string;
   fileId?: any; // base64 or blob URL
+  objectName:string;
   previewUrl?: any;
 };
 
