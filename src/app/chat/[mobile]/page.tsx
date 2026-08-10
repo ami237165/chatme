@@ -68,7 +68,7 @@ const ChatPage = () => {
   const currentChat:User = friens.find((f:User) => f.mobileNumber == mobile)
   const {createConvMetadata} = useConversationService();
   const presence = usePresence(currentMobile, mobile);
-
+  
   const hasLoadedOnce = useRef(false);
 
 useEffect(() => {
@@ -83,15 +83,16 @@ useEffect(() => {
 
     // const existingMsgs = messages; // from Redux
     // console.log("bbb :",messages[0].timestamp.toString());
+    console.log("messages :",(messages[messages.length - 1]?.timestamp));
     
     const lastTimestamp = messages.length > 0
-      ? Date.parse(messages[0].timestamp.toString())
+      ? new Date(messages[messages.length - 1].timestamp).getTime()
       : Date.now();
 
     try {
       const fetched = await loadMessages({
         roomId,
-        from: lastTimestamp.valueOf(),
+        from: lastTimestamp,
         to: Date.now() - 30 * 24 * 60 * 60 * 1000,
       });
       console.log("fetched messages:", fetched);
@@ -132,11 +133,13 @@ useEffect(() => {
 
   useEffect(() => {
     setIsClient(true);
+    if (!currentMobile) return; 
     const socket = getSocket(currentMobile);
     if (!socket.connected) socket.connect();
   }, [currentMobile]);
 
   useEffect(() => {
+    console.log("presense :",presence);
     setScrollRoot(msgContainerRef.current);
   }, [isClient, messages.length]);
 
@@ -191,6 +194,7 @@ useEffect(() => {
     msg: MessageData,
     filesToUpload: typeof pendingFiles = [],
   ) => {
+    if (!currentMobile) return; 
     const socket = getSocket(currentMobile);
 
     await handleNewMessage(msg.roomId, msg);
@@ -205,9 +209,9 @@ useEffect(() => {
       })),
     };
 
-    socket.emit("send_message", {
+    socket.emit("send_message",{
       ...socketPayload,
-      timestamp: String(socketPayload.timestamp),
+      timestamp:new Date(msg.timestamp).getTime()
     });
 
     if (!msg.hasFiles || !filesToUpload.length) return;
@@ -335,7 +339,7 @@ useEffect(() => {
 
                 {/* Status below */}
                 <p className="text-sm text-gray-300">
-                  {presence?.online && presence.online
+                  {presence?.online && presence.online === true
                     ? "Online"
                     : formatLastSeen(presence.lastSeen)}
                 </p>
@@ -375,9 +379,9 @@ useEffect(() => {
                   />
                 )}
                 {msg.hasFiles &&
-                  msg.files?.map((file, idx) => (
+                  msg.files?.map((file) => (
                     <MediaPreviewLoader
-                      key={idx}
+                      key={file.fileId}
                       file={file}
                       isOwnMessage={msg.sender === currentMobile}
                       isUploading={msg.isUploading}

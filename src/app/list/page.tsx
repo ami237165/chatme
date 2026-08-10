@@ -14,6 +14,20 @@ import Requests from "@/components/Requests";
 import FriendList from "@/components/FriendList";
 import { addFriend } from "@/store/slices/friends.slice";
 
+// safe parse helper — never throws
+const safeParseUser = (
+  value: unknown,
+): { id?: string; name?: string } | null => {
+  if (!value) return null;
+  if (typeof value === "object") return value as any; // already an object
+  if (typeof value !== "string") return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
 const Page = () => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -24,14 +38,17 @@ const Page = () => {
 
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  const parsedUser = safeParseUser(currentUser);
+
   const { data, error, isLoading } = useGetContactList(
-    JSON.parse(currentUser).id,
-    isAuthChecked,
+    parsedUser?.id ?? "",
+    isAuthChecked && !!parsedUser?.id,
   );
 
   const [query, setQuery] = useState("");
   useEffect(() => {
-    if (!token) {
+    if (!token || !safeParseUser(currentUser)?.id) {
       router.push("/login");
       return;
     }
@@ -63,7 +80,7 @@ const Page = () => {
       ? data?.data.filter((user: any) => user?.mobileNumber !== currentMobile)
       : [];
 
-  if (!isAuthChecked) return null;
+  if (!isAuthChecked || !parsedUser) return null;
   if (isLoading)
     return <div className="text-center py-6 text-white">Loading...</div>;
   if (error)
@@ -183,7 +200,7 @@ const Page = () => {
             </Dialog.Panel>
           </Dialog>
           <div className="p-4">
-            <FriendList  />
+            <FriendList />
             <Requests />
           </div>
         </div>

@@ -28,7 +28,7 @@ export const useHandleFileChange = () => {
       const objectName = (file.name + `-`+ uuidv4()).replaceAll(' ','-')
       return {
         fileName: file.name,
-        fileType: file.type,
+        fileType: file.type || "application/octet-stream",
         objectName:objectName,
         previewUrl: blobUrl,
         fileData: file,

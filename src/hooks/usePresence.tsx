@@ -8,10 +8,7 @@ interface PresenceState {
   lastSeen: number | null;
 }
 
-export const usePresence = (
-  currentMobile: string,
-  otherUserMobile: string
-) => {
+export const usePresence = (currentMobile: string, otherUserMobile: string) => {
   const [presence, setPresence] = useState<PresenceState>({
     online: false,
     lastSeen: null,
@@ -19,35 +16,31 @@ export const usePresence = (
 
   useEffect(() => {
     if (!currentMobile || !otherUserMobile) return;
-console.log("hitting usePresence");
 
     const socket = getSocket(currentMobile);
 
-    // Ask server for current status
-    socket.emit("check-presence", { userId: otherUserMobile });
+    const askPresence = () => {
+      socket.emit("check-presence", { userId: otherUserMobile });
+    };
 
-    // When server sends initial presence
+    // Ask immediately if already connected...
+    if (socket.connected) askPresence();
+
+    // ...and every time the socket (re)connects, in case it was ever dropped
+    socket.on("connect", askPresence);
+
     socket.on("presence-status", ({ online, lastSeen }) => {
       setPresence({ online, lastSeen });
     });
 
-    // Live ONLINE event
     socket.on("user-online", ({ userId }) => {
-        
       if (userId === otherUserMobile) {
-                
-        setPresence((prev) => ({
-          ...prev,
-          online: true,
-          lastSeen: null,
-        }));
+        setPresence((prev) => ({ ...prev, online: true, lastSeen: null }));
       }
     });
 
-    // Live OFFLINE event
     socket.on("user-offline", ({ userId }) => {
       if (userId === otherUserMobile) {
-                
         setPresence((prev) => ({
           ...prev,
           online: false,
@@ -57,6 +50,7 @@ console.log("hitting usePresence");
     });
 
     return () => {
+      socket.off("connect", askPresence);
       socket.off("presence-status");
       socket.off("user-online");
       socket.off("user-offline");
