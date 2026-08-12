@@ -3,8 +3,6 @@ import { resetStore } from "@/store/resetAction";
 import { clearAuth } from "@/store/slices/slice";
 import { clearMessages } from "@/store/slices/message.slice";
 import { closeSocket } from "@/utils/SocketIo/SocketIo";
-import { getSocket } from "@/utils/SocketIo/SocketIo";
-import { useSelector } from "react-redux";
 
 const clearBrowserStorage = () => {
   if (typeof window === "undefined") return;

@@ -32,6 +32,7 @@ interface RoomUnreadInfo {
 export const useUnreadMessages = () => {
   // state.message IS the { [roomId]: MessageData[] } map — no .messages nesting
   const conversations = useSelector((state: RootState) => state.message) ?? {};
+  const currentMobile = useSelector((state: any) => state.auth.currentMobile);
 
   const unreadByRoomId = useMemo(() => {
     const result: Record<string, RoomUnreadInfo> = {};
@@ -42,7 +43,10 @@ export const useUnreadMessages = () => {
       const roomMessages = conversations[roomId];
       if (!Array.isArray(roomMessages)) continue;
 
-      const unreadMsgs = getUnreadMessagesFromLatest(roomMessages);
+      const unreadMsgs = getUnreadMessagesFromLatest(roomMessages).filter(
+        (msg) => msg.sender !== currentMobile,
+      );
+
       result[roomId] = {
         messages: unreadMsgs,
         count: unreadMsgs.length,

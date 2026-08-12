@@ -133,10 +133,7 @@ useEffect(() => {
 
   useEffect(() => {
     setIsClient(true);
-    if (!currentMobile) return; 
-    const socket = getSocket(currentMobile);
-    if (!socket.connected) socket.connect();
-  }, [currentMobile]);
+  }, []);
 
   useEffect(() => {
     console.log("presense :",presence);

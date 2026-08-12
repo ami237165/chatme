@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { getSocket } from "@/utils/SocketIo/SocketIo";
-import { log } from "console";
+import { isTokenValid } from "@/utils/token_decoder";
 
 interface PresenceState {
   online: boolean;
@@ -9,13 +10,14 @@ interface PresenceState {
 }
 
 export const usePresence = (currentMobile: string, otherUserMobile: string) => {
+  const token = useSelector((state: any) => state.auth.access_token);
   const [presence, setPresence] = useState<PresenceState>({
     online: false,
     lastSeen: null,
   });
 
   useEffect(() => {
-    if (!currentMobile || !otherUserMobile) return;
+    if (!currentMobile || !otherUserMobile || !isTokenValid(token)) return;
 
     const socket = getSocket(currentMobile);
 
@@ -55,7 +57,7 @@ export const usePresence = (currentMobile: string, otherUserMobile: string) => {
       socket.off("user-online");
       socket.off("user-offline");
     };
-  }, [currentMobile, otherUserMobile]);
+  }, [currentMobile, otherUserMobile, token]);
 
   return presence;
 };

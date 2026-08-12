@@ -54,3 +54,9 @@ export const tryDecodeJWT = (token: unknown) => {
     return null;
   }
 };
+
+export const isTokenValid = (token: unknown): boolean => {
+  const decoded = tryDecodeJWT(token);
+  if (!decoded?.payload?.exp) return false;
+  return decoded.payload.exp * 1000 > Date.now();
+};

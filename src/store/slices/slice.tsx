@@ -10,7 +10,7 @@ const initialState = {
   currentMobile:
     typeof window !== "undefined" && localStorage.getItem("currentMobile")
       ? localStorage.getItem("currentMobile")
-      : [],
+      : null,
   currentUser:
     typeof window !== "undefined" && localStorage.getItem("currentUser")
       ? (localStorage.getItem("currentUser"))

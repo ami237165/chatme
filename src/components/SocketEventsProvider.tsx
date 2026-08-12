@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useSelector } from "react-redux";
-import { getSocket } from "@/utils/SocketIo/SocketIo";
+import { getSocket, emitGoOffline } from "@/utils/SocketIo/SocketIo";
+import { isTokenValid } from "@/utils/token_decoder";
 import { useHandleNewMsg } from "@/hooks/useHandleNewMsg";
 import { useUpdateMsg } from "@/hooks/useUpdatedMsg";
 import {
@@ -18,12 +19,13 @@ const getRoomId = (userA: string, userB: string) =>
 
 export default function SocketEventsProvider() {
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
+  const token = useSelector((state: any) => state.auth.access_token);
   const dispatch = useDispatch();
   const { handleNewMessage } = useHandleNewMsg();
   const { handleUpdateMessage, handleUpdateFileProgress } = useUpdateMsg();
 
   useEffect(() => {
-    if (!currentMobile) return;
+    if (!currentMobile || !isTokenValid(token)) return;
 
     const socket = getSocket(currentMobile);
     if (!socket.connected) socket.connect();
@@ -173,7 +175,16 @@ export default function SocketEventsProvider() {
       socket.off("upload_progress", onUploadProgress);
       socket.off("message_media_ready", onMessageMediaReady);
     };
-  }, [currentMobile, dispatch, handleNewMessage, handleUpdateMessage, handleUpdateFileProgress]);
+  }, [currentMobile, token, dispatch, handleNewMessage, handleUpdateMessage, handleUpdateFileProgress]);
+
+  useEffect(() => {
+    const handlePageHide = () => {
+      emitGoOffline();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => window.removeEventListener("pagehide", handlePageHide);
+  }, []);
 
   return null;
 }

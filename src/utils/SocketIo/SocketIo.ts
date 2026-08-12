@@ -31,6 +31,12 @@ export const getSocket = (mobile: any): Socket => {
   return socket;
 };
 
+export const emitGoOffline = (): void => {
+  if (socket?.connected) {
+    socket.emit("go-offline");
+  }
+};
+
 export const closeSocket = (): Promise<void> => {
   return new Promise((resolve) => {
     if (!socket) {

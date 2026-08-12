@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import ProtectedRoutes from "@/utils/ProtectedRoutes";
 import { useDispatch, useSelector } from "react-redux";
 import { setContacts } from "@/store/slices/slice";
-import { getSocket } from "@/utils/SocketIo/SocketIo";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
 import { Dialog } from "@headlessui/react";
 import { Heart, Plus } from "lucide-react";
@@ -53,9 +52,7 @@ const Page = () => {
       return;
     }
     setIsAuthChecked(true);
-    const socket = getSocket(currentMobile);
-    if (!socket.connected) socket.connect();
-  }, [token, router]);
+  }, [token, router, currentUser]);
   useEffect(() => {
     if (data?.data) {
       dispatch(addFriend(data?.data));
