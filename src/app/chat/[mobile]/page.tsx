@@ -87,13 +87,13 @@ useEffect(() => {
     
     const lastTimestamp = messages.length > 0
       ? new Date(messages[messages.length - 1].timestamp).getTime()
-      : Date.now();
+      : Date.now() - 30 * 24 * 60 * 60 * 1000;
 
     try {
       const fetched = await loadMessages({
         roomId,
         from: lastTimestamp,
-        to: Date.now() - 30 * 24 * 60 * 60 * 1000,
+        to: Date.now(),
       });
       console.log("fetched messages:", fetched);
       [...fetched.data].reverse().forEach(async (msg) => {
