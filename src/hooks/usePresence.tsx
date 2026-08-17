@@ -18,19 +18,35 @@ export const usePresence = (currentMobile: string, otherUserMobile: string) => {
 
   useEffect(() => {
     if (!currentMobile || !otherUserMobile || !isTokenValid(token)) return;
+    console.log("PRESENCE EFFECT START", otherUserMobile);
 
     const socket = getSocket(currentMobile);
 
+    const addMeToWatchers = () => {
+      socket.emit("add-me-to-watchers", { targetUserId: otherUserMobile });
+    };
     const askPresence = () => {
       socket.emit("check-presence", { userId: otherUserMobile });
     };
 
+    let initialized = false;
+
+    const initializePresence = () => {
+      if (initialized) return;
+      initialized = true;
+      console.log("called in initializePresence");
+      askPresence();
+      addMeToWatchers();
+    };
+
     // Ask immediately if already connected...
-    if (socket.connected) askPresence();
-
-    // ...and every time the socket (re)connects, in case it was ever dropped
-    socket.on("connect", askPresence);
-
+    if (socket.connected) {
+      console.log("socket already connected, initializing presence");
+      initializePresence();
+    } else {
+      console.log("socket not connected, waiting for connect event");
+      socket.once("connect", initializePresence);
+    }
     socket.on("presence-status", ({ online, lastSeen }) => {
       setPresence({ online, lastSeen });
     });
@@ -51,11 +67,19 @@ export const usePresence = (currentMobile: string, otherUserMobile: string) => {
       }
     });
 
+    const removeMeFromWatchers = () => {
+      socket.emit("remove-me-from-watchers", { targetUserId: otherUserMobile });
+    }
+
     return () => {
-      socket.off("connect", askPresence);
+      console.log("PRESENCE EFFECT CLEANUP", otherUserMobile);
+      socket.off("connect", initializePresence);
+
+      // socket.off("connect", addMeToWatchers);
       socket.off("presence-status");
       socket.off("user-online");
       socket.off("user-offline");
+      removeMeFromWatchers();
     };
   }, [currentMobile, otherUserMobile, token]);
 

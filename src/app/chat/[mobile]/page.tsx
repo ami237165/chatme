@@ -67,8 +67,10 @@ const ChatPage = () => {
   const friens = useSelector((state:RootState) => state.friends.friends)
   const currentChat:User = friens.find((f:User) => f.mobileNumber == mobile)
   const {createConvMetadata} = useConversationService();
+  console.log("CHAT PAGE RENDER", mobile);
+
   const presence = usePresence(currentMobile, mobile);
-  
+  console.log("CHAT PAGE AFTER PRESENCE", mobile);
   const hasLoadedOnce = useRef(false);
 
 useEffect(() => {
@@ -94,9 +96,15 @@ useEffect(() => {
         roomId,
         from: lastTimestamp,
         to: Date.now(),
+        start:0,
+        stop:100
       });
       console.log("fetched messages:", fetched);
-      [...fetched.data].reverse().forEach(async (msg) => {
+      const fetchedMessages = fetched.data.map((m) =>
+      typeof m === 'string' ? JSON.parse(m) : m
+      );
+
+      [...fetchedMessages].reverse().forEach(async (msg) => {
         await handleNewMessage(roomId, msg);
       });
       // requestAnimationFrame(() => {

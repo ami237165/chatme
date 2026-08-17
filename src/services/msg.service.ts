@@ -3,8 +3,8 @@ import { useLoadMessagesMutation } from "@/store/apiServices/loadMsg";
 export const useLoadMessagesService = () => {
   const [loadMsgs] = useLoadMessagesMutation();
 
-  const loadMessages = async ({ roomId, from, to }) => {
-    return await loadMsgs({ roomId, from, to }).unwrap();
+  const loadMessages = async ({ roomId, from, to,start,stop }) => {
+    return await loadMsgs({ roomId, from, to,start,stop }).unwrap();
   };
 
   return { loadMessages };
