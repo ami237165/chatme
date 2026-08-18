@@ -33,9 +33,7 @@ export function useAsyncForm() {
 
   const redirect = (onSuccessRedirect) => {
     if (onSuccessRedirect) {
-      setTimeout(() => {
         router.push(onSuccessRedirect);
-      }, 3500);
     }
   };
 

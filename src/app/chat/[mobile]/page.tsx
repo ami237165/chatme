@@ -3,7 +3,7 @@ import ProtectedRoutes from "@/utils/ProtectedRoutes";
 import { getSocket } from "@/utils/SocketIo/SocketIo";
 import { useViewportHeight } from "@/utils/useViewportHeight";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { Toaster } from "react-hot-toast";
@@ -21,7 +21,7 @@ import { useHandleVCall } from "../../../hooks/useHandleVCall";
 import { usePresence } from "@/hooks/usePresence";
 import { formatLastSeen } from "@/utils/userActivity/lastSeen";
 import { useConversationService, useLoadMessagesService } from "@/services/msg.service";
-import { RootState } from "@/store";
+import { RootState, store } from "@/store";
 import { User } from "@/store/slices/friends.slice";
 import {
   completeMessageUpload,
@@ -41,9 +41,8 @@ const ChatPage = () => {
   const { loadMessages } = useLoadMessagesService();
   const msgContainerRef = useRef<HTMLDivElement>(null);
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
-  const initialLoadDone = useRef(false);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isReadyForNewMessageScroll = useRef(false);
+  const prevMessageCountRef = useRef(0);
 
   const getRoomId = (userA: string, userB: string) =>
     [userA, userB].sort().join("_");
@@ -70,74 +69,99 @@ const ChatPage = () => {
   console.log("CHAT PAGE RENDER", mobile);
 
   const presence = usePresence(currentMobile, mobile);
-  console.log("CHAT PAGE AFTER PRESENCE", mobile);
   const hasLoadedOnce = useRef(false);
 
-useEffect(() => {
-  if (hasLoadedOnce.current) return;      // already ran once, skip forever
-  if (!currentMobile || !mobile) return;  // wait until values are ready
+  const scrollToBottom = useCallback((instant: boolean) => {
+    const container = msgContainerRef.current;
+    if (!container) return;
 
-  hasLoadedOnce.current = true;
-  loadMsg();
-}, [currentMobile, mobile]);
+    if (instant) {
+      container.scrollTop = container.scrollHeight;
+    } else {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    }
+  }, []);
+
+  const finishInitialScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollToBottom(true);
+      requestAnimationFrame(() => {
+        scrollToBottom(true);
+        isReadyForNewMessageScroll.current = true;
+        prevMessageCountRef.current =
+          selectMessagesByRoomId(roomId)(store.getState()).length;
+      });
+    });
+  }, [roomId, scrollToBottom]);
+
+  useEffect(() => {
+    hasLoadedOnce.current = false;
+    isReadyForNewMessageScroll.current = false;
+    prevMessageCountRef.current = 0;
+  }, [roomId]);
+
+  useEffect(() => {
+    if (hasLoadedOnce.current) return;
+    // if (!messagesRehydrated) return;
+    if (!currentMobile || !mobile || !roomId) return;
+
+    hasLoadedOnce.current = true;
+    loadMsg();
+  }, [currentMobile, mobile, roomId]);
+
   const loadMsg = async () => {
     if (!currentMobile || !mobile || !roomId) return;
 
-    // const existingMsgs = messages; // from Redux
-    // console.log("bbb :",messages[0].timestamp.toString());
-    console.log("messages :",(messages[messages.length - 1]?.timestamp));
-    
-    const lastTimestamp = messages.length > 0
-      ? new Date(messages[messages.length - 1].timestamp).getTime()
-      : Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const roomMessages = selectMessagesByRoomId(roomId)(store.getState());
+    console.log("messages :", roomMessages);
+    if(roomMessages.length === 0){
+      console.log();
+      
+      const lastTimestamp =
+      roomMessages.length > 0
+        ? new Date(roomMessages[roomMessages.length - 1].timestamp).getTime()
+        : Date.now() - 30 * 24 * 60 * 60 * 1000;
 
     try {
       const fetched = await loadMessages({
         roomId,
         from: lastTimestamp,
         to: Date.now(),
-        start:0,
-        stop:100
       });
       console.log("fetched messages:", fetched);
       const fetchedMessages = fetched.data.map((m) =>
       typeof m === 'string' ? JSON.parse(m) : m
       );
 
-      [...fetchedMessages].reverse().forEach(async (msg) => {
-        await handleNewMessage(roomId, msg);
-      });
-      // requestAnimationFrame(() => {
-      //   const el = msgContainerRef.current;
-      //   if (el) {
-      //     el.scrollTop = el.scrollHeight;
-      //   }
-      //   initialLoadDone.current = true; // 🔥 IMPORTANT
-      // });
+      await Promise.all(
+        fetchedMessages.map((msg) => handleNewMessage(roomId, msg)),
+      );
     } catch (error) {
       console.log("error in fetching :",error);
       
     }
+    }
+
+    finishInitialScroll();
   };
 
   // Helper to get roomId
   useViewportHeight();
-  useEffect(() => {
+
+  useLayoutEffect(() => {
     if (!messages.length) return;
 
-    if (!initialLoadDone.current) {
-      // 🔥 FIRST LOAD → NO animation
-      messagesEndRef.current?.scrollIntoView({
-        behavior: "auto",
-      });
-      initialLoadDone.current = true;
-    } else {
-      // 🔥 NEW MESSAGE → smooth scroll
-      messagesEndRef.current?.scrollIntoView({
-        behavior: "smooth",
-      });
+    if (!isReadyForNewMessageScroll.current) {
+      scrollToBottom(true);
+      return;
     }
-  }, [messages.length]);
+
+    if (messages.length > prevMessageCountRef.current) {
+      scrollToBottom(false);
+    }
+
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length, roomId, scrollToBottom]);
 
   useEffect(() => {
     setIsClient(true);
@@ -394,7 +418,6 @@ useEffect(() => {
                   ))}
               </ChatMessageBubble>
             ))}
-            <div ref={messagesEndRef} />
           </div>
           {/*  message body ended*/}
           {/*  input body started*/}
