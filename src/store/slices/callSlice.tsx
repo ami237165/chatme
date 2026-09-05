@@ -28,6 +28,10 @@ export const peerSlice = createSlice({
   reducers: {
     setOffer(state, action) { state.offer = action.payload; },
     setAnswer(state, action) { state.answer = action.payload; },
+    clearPeer(state) {
+      state.offer = null;
+      state.answer = null;
+    },
   }
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import {
   setCurrentMobile,
@@ -17,11 +17,17 @@ import { useLoginService } from "./service";
 import { ApiResponse } from "@/interfaces/response.InterFace";
 import { MessageUI } from "@/components/MessageUI";
 import { ButtonLoader } from "@/utils/ButtonLoader";
-
+import { getBrowserSessionId } from "@/utils/browserSession";
+import { setLoggingOut } from "@/utils/sessionAuth";
+console.log("NEXT_PUBLIC_API_BASE_URL", process.env.NEXT_PUBLIC_API_BASE_URL);
 export default function Login() {
   const { loginUser } = useLoginService();
   const dispatch = useDispatch();
   const router = useRouter();
+
+  useEffect(() => {
+    setLoggingOut(false);
+  }, []);
   const { formData, handleChange } = useFormData({
     mobileNumber: "",
     password: "",
@@ -37,11 +43,14 @@ export default function Login() {
   } = useAsyncForm();
 
   const handleLogin = async () => {
-        
-    let data: ApiResponse = await run(() => loginUser(formData));
+    const browserSessionId = getBrowserSessionId();
+    let data: ApiResponse = await run(() =>
+      loginUser({ ...formData, browserSessionId }),
+    );
         
     if (data.statusCode === 200) {
-            dispatch(setToken(data.data.access_token));
+      getBrowserSessionId();
+      dispatch(setToken(data.data.access_token));
       const decoded = decodeJWT(data.data.access_token);
       dispatch(setCurrentMobile(decoded?.payload?.mobileNumber || null));
             

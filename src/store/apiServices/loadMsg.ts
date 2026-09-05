@@ -2,7 +2,7 @@ import { baseApi } from "./baseApi";
 
 export const loadmsg = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    loadMessages: builder.mutation<any, {roomId:string, from: number; to: number; }>({
+    loadMessages: builder.mutation<any, {roomId:string, from: string; to: string; }>({
       query: ({roomId, from, to }) => ({
         url: "msgs/getMsgInRange",
         method: "POST",

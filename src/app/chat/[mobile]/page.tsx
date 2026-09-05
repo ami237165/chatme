@@ -28,7 +28,12 @@ import {
   getPresignedUrl,
   uploadMediaFile,
 } from "@/services/media.service";
+import {
+  nowTimestampSeconds,
+  timestampSecondsAgo,
+} from "@/utils/timestamp";
 import { useUpdateMsg } from "@/hooks/useUpdatedMsg";
+import { useMessagesRehydrated } from "@/hooks/useMessagesRehydrated";
 import toast from "react-hot-toast";
 import { getMediaFromIndexedDB, saveMediaToIndexedDB } from "@/lib/indexdb";
 
@@ -69,6 +74,7 @@ const ChatPage = () => {
   console.log("CHAT PAGE RENDER", mobile);
 
   const presence = usePresence(currentMobile, mobile);
+  const messagesRehydrated = useMessagesRehydrated();
   const hasLoadedOnce = useRef(false);
 
   const scrollToBottom = useCallback((instant: boolean) => {
@@ -102,44 +108,38 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (hasLoadedOnce.current) return;
-    // if (!messagesRehydrated) return;
+    if (!messagesRehydrated) return;
     if (!currentMobile || !mobile || !roomId) return;
 
     hasLoadedOnce.current = true;
     loadMsg();
-  }, [currentMobile, mobile, roomId]);
+  }, [currentMobile, mobile, roomId, messagesRehydrated]);
 
   const loadMsg = async () => {
     if (!currentMobile || !mobile || !roomId) return;
 
     const roomMessages = selectMessagesByRoomId(roomId)(store.getState());
-    console.log("messages :", roomMessages);
-    if(roomMessages.length === 0){
-      console.log();
-      
-      const lastTimestamp =
+    const from =
       roomMessages.length > 0
-        ? new Date(roomMessages[roomMessages.length - 1].timestamp).getTime()
-        : Date.now() - 30 * 24 * 60 * 60 * 1000;
+        ? roomMessages[roomMessages.length - 1].timestamp
+        : timestampSecondsAgo(30 * 24 * 60 * 60);
 
     try {
       const fetched = await loadMessages({
         roomId,
-        from: lastTimestamp,
-        to: Date.now(),
+        from,
+        to: nowTimestampSeconds(),
       });
-      console.log("fetched messages:", fetched);
-      const fetchedMessages = fetched.data.map((m) =>
-      typeof m === 'string' ? JSON.parse(m) : m
+      const fetchedMessages = (fetched.data ?? []).map((m) =>
+        typeof m === "string" ? JSON.parse(m) : m,
       );
 
       await Promise.all(
         fetchedMessages.map((msg) => handleNewMessage(roomId, msg)),
       );
     } catch (error) {
-      console.log("error in fetching :",error);
-      
-    }
+      console.error("error in fetching messages:", error);
+      toast.error("Failed to load messages");
     }
 
     finishInitialScroll();
@@ -204,7 +204,7 @@ const ChatPage = () => {
             uploadProgress: 0,
           }))
         : undefined,
-      timestamp: Date.now(),
+      timestamp: nowTimestampSeconds(),
       roomId: currentRoomId,
       isRead: false,
       isSent: false,
@@ -238,10 +238,7 @@ const ChatPage = () => {
       })),
     };
 
-    socket.emit("send_message",{
-      ...socketPayload,
-      timestamp:new Date(msg.timestamp).getTime()
-    });
+    socket.emit("send_message", socketPayload);
 
     if (!msg.hasFiles || !filesToUpload.length) return;
 
@@ -271,7 +268,7 @@ const ChatPage = () => {
           file.fileId,
           msg.id,
           msg.roomId,
-          file.objectKey,
+          file.objectName,
           (progress) => {
             handleUpdateFileProgress(msg.roomId, msg.id, file.fileId, progress);
           },
@@ -281,8 +278,8 @@ const ChatPage = () => {
           fileId: file.fileId,
           fileName: file.fileName,
           fileType: file.fileType,
-          objectName:file.objectName,
-          objectKey: result.objectKey,
+          objectName: file.objectName,
+          objectKey: result.objectKey || file.objectName,
         });
 
         handleUpdateFileProgress(
@@ -290,7 +287,7 @@ const ChatPage = () => {
           msg.id,
           file.fileId,
           100,
-          result.objectKey,
+          result.objectKey || file.objectName,
         );
       }
 

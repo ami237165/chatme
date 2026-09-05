@@ -1,8 +1,11 @@
 "use client";
 import AnimatedPageWrapper from "@/components/AnimatedPageWrapper";
+import FeedBackForm from "@/components/FeedBackForm";
+import FeedBackModal from "@/components/FeedBackModal";
 import ProtectedRoutes from "@/utils/ProtectedRoutes";
 import { logoutUser } from "@/utils/logout";
 import { tryDecodeJWT } from "@/utils/token_decoder";
+import { MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
@@ -10,7 +13,7 @@ import { useSelector } from "react-redux";
 export default function ProfilePage() {
   const router = useRouter();
   const token = useSelector((state: any) => state.auth.access_token);
-
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [details, setdetails] = useState<any>();
 
   useEffect(() => {
@@ -28,6 +31,18 @@ export default function ProfilePage() {
       <ProtectedRoutes>
         <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6">
+            <div className="bg-green-500">
+              <MessageCircle
+                onClick={() => setIsModalOpen(true)}
+                className="float-right cursor-pointer"
+              />
+            </div>
+            <FeedBackModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+            >
+              <FeedBackForm onClick={() => setIsModalOpen(false)}/>
+            </FeedBackModal>
             <div className="flex flex-col items-center gap-1">
               <div className="w-24 h-24 bg-gray-300 rounded-full"></div>
               <h2 className="text-l font-semibold text-gray-800">

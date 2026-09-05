@@ -7,11 +7,9 @@ let peer: RTCPeerConnection | null = null;
 let pendingCandidates: RTCIceCandidateInit[] = [];
 
 export const getPeer = (mobile?: string) => {
-    
   if (!peer || peer.signalingState === "closed") {
     peer = new RTCPeerConnection(config);
 
-    // Remote stream handling
     const remoteStream = new MediaStream();
     peer.ontrack = (event) => {
       event.streams[0]
@@ -20,20 +18,18 @@ export const getPeer = (mobile?: string) => {
       store.dispatch(videoActions.setRemoteStream(remoteStream));
     };
 
-    // ICE candidates
     peer.onicecandidate = (event) => {
-      
-      if (event.candidate) {
-        let currentMobile = store.getState().auth.currentMobile;
-        let roomId = [mobile, currentMobile].sort().join("_");
-        const socket = getSocket(currentMobile);
-        socket.emit("ice-candidate", {
-          sender:currentMobile,
-          receiver:mobile,
-          roomId: roomId,
-          candidate: event.candidate,
-        });
-      }
+      if (!event.candidate || !mobile) return;
+
+      const currentMobile = store.getState().auth.currentMobile;
+      const roomId = [mobile, currentMobile].sort().join("_");
+      const socket = getSocket(currentMobile);
+      socket.emit("ice-candidate", {
+        sender: currentMobile,
+        receiver: mobile,
+        roomId,
+        candidate: event.candidate,
+      });
     };
   }
   return peer;
@@ -45,15 +41,15 @@ export const resetPeer = () => {
     peer.close();
     peer = null;
   }
-  return getPeer(); // create a fresh one
+  pendingCandidates = [];
 };
 
 export const addCandidateSafely = async (candidate: RTCIceCandidateInit) => {
   if (peer && peer.remoteDescription) {
     try {
       await peer.addIceCandidate(candidate);
-    } catch (err) {
-      
+    } catch {
+      // ignore duplicate or late candidates
     }
   } else {
     pendingCandidates.push(candidate);
@@ -64,8 +60,8 @@ export const flushCandidates = async () => {
   for (const candidate of pendingCandidates) {
     try {
       await peer?.addIceCandidate(candidate);
-    } catch (err) {
-      
+    } catch {
+      // ignore duplicate or late candidates
     }
   }
   pendingCandidates = [];

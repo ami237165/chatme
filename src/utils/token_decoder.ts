@@ -60,3 +60,12 @@ export const isTokenValid = (token: unknown): boolean => {
   if (!decoded?.payload?.exp) return false;
   return decoded.payload.exp * 1000 > Date.now();
 };
+
+export const getTokenRefreshDelayMs = (
+  token: unknown,
+  bufferMs = 60_000,
+): number | null => {
+  const decoded = tryDecodeJWT(token);
+  if (!decoded?.payload?.exp) return null;
+  return decoded.payload.exp * 1000 - Date.now() - bufferMs;
+};

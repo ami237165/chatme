@@ -1,14 +1,22 @@
-import { MessageData } from "@/interfaces/meseage_related/messageInterFace";
+import { FileAttachment, MessageData } from "@/interfaces/meseage_related/messageInterFace";
 import { addMessage } from "@/store/slices/message.slice";
+import { toTimestampSecondsString } from "@/utils/timestamp";
 import { useDispatch } from "react-redux";
 
-export const useHandleNewMsg = () => {
-  const dispatch = useDispatch();
+function isRemoteMediaReady(files?: FileAttachment[]) {
+  return Boolean(files?.some((file) => file.objectKey || file.objectName));
+}
 
-  const handleNewMessage = async (roomId: string, msg: MessageData) => {
-    const cleanMsg: MessageData = {
-      ...msg,
-      files: msg.files?.map(({ fileName, fileType, fileId,objectName, objectKey, uploadProgress, downloadProgress }) => ({
+function normalizeMessage(msg: MessageData): MessageData {
+  const remoteMediaReady = isRemoteMediaReady(msg.files);
+
+  return {
+    ...msg,
+    timestamp: toTimestampSecondsString(msg.timestamp),
+    isUploading: remoteMediaReady ? false : msg.isUploading,
+    isSent: remoteMediaReady ? true : msg.isSent,
+    files: msg.files?.map(
+      ({
         fileName,
         fileType,
         fileId,
@@ -16,10 +24,25 @@ export const useHandleNewMsg = () => {
         objectKey,
         uploadProgress,
         downloadProgress,
-      })),
-    };
+      }) => ({
+        fileName,
+        fileType,
+        fileId,
+        objectName,
+        objectKey,
+        uploadProgress:
+          objectKey || objectName ? 100 : uploadProgress,
+        downloadProgress,
+      }),
+    ),
+  };
+}
 
-    dispatch(addMessage({ roomId, message: cleanMsg }));
+export const useHandleNewMsg = () => {
+  const dispatch = useDispatch();
+
+  const handleNewMessage = async (roomId: string, msg: MessageData) => {
+    dispatch(addMessage({ roomId, message: normalizeMessage(msg) }));
   };
 
   return { handleNewMessage };

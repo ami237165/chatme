@@ -1,124 +1,85 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import "./customTailwind.css";
+
 import { useDispatch, useSelector } from "react-redux";
-import { callActions, videoActions } from "@/store/slices/callSlice";
 import { getSocket } from "../SocketIo/SocketIo";
+import { callActions, peerActions, videoActions } from "@/store/slices/callSlice";
+import { acquireLocalStream } from "./callMedia";
 import { flushCandidates, getPeer } from "./Peer";
-export default function IncomingCallOverlay(props: any) {
+import { teardownCall } from "./teardownCall";
+
+type IncomingCallOverlayProps = {
+  mobile: string;
+  currentMobile: string;
+};
+
+export default function IncomingCallOverlay({
+  mobile,
+  currentMobile,
+}: IncomingCallOverlayProps) {
   const dispatch = useDispatch();
-  const currentMobile = useSelector((state: any) => state.auth.currentMobile);
-  const offerAanswer = useSelector((state: any) => state.peer);
-  const video = useSelector((state: any) => state.video);
+  const peerState = useSelector((state: any) => state.peer);
+  const callStatus = useSelector((state: any) => state.call.status);
 
-    useEffect(() => {
-        
-    const socket = getSocket(currentMobile);
-        
-    socket.on('end-call', async (data) =>{
-      
-      dispatch(callActions.endCall());
-      
-          if (video.localStream) {
-            video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
-              track.stop();
-            });
-            // CLEAR local stream in Redux
-            dispatch(videoActions.setLocalStream(null));
-          }
-      
-          if (video.remoteStream) {
-            video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
-              track.stop();
-            });
-            // CLEAR remote stream in Redux
-            dispatch(videoActions.setRemoteStream(null));
-          }
-          // setIsDragging(false);
-      
-          // Clear video elements
-          // if (localMainVideoRef.current) localMainVideoRef.current.srcObject = null;
-          // if (localVideoRef.current) localVideoRef.current.srcObject = null;
-          // if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-      
-          // Reset peer
-          const peer = getPeer(currentMobile);
-          peer.getSenders().forEach((sender) => {
-            try {
-              peer.removeTrack(sender);
-            } catch (e) {}
-          });
-          peer.close();
-    })
-  }, [])
-  
   const handleReject = () => {
-    const socket = getSocket(currentMobile);
+    const offer = peerState.offer;
+    if (!offer) {
+      teardownCall();
+      return;
+    }
 
-    let roomId = [offerAanswer.offer.sender, currentMobile].sort().join("_");
-    // Send the answer back to Caller
+    const socket = getSocket(currentMobile);
     socket.emit("hangup-call", {
       sender: currentMobile,
-      receiver: offerAanswer.offer.sender,
-      roomId: roomId,
+      receiver: offer.sender,
+      roomId: offer.roomId,
     });
-    dispatch(callActions.endCall());
-
-    if (video.localStream) {
-      video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
-        track.stop();
-      });
-      // CLEAR local stream in Redux
-      dispatch(videoActions.setLocalStream(null));
-    }
-
-    if (video.remoteStream) {
-      video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
-        track.stop();
-      });
-      // CLEAR remote stream in Redux
-      dispatch(videoActions.setRemoteStream(null));
-    }
-
-    // Reset peer
-    const peer = getPeer(currentMobile);
-    peer.getSenders().forEach((sender) => {
-      try {
-        peer.removeTrack(sender);
-      } catch (e) {}
-    });
-    peer.close();
+    teardownCall();
   };
+
   const handleAccept = async () => {
-    const socket = getSocket(currentMobile);
-    // Send the answer back to Caller
-    socket.emit("call-answer", {
-      sender: currentMobile,
-      receiver: offerAanswer.answer.receiver,
-      answer: offerAanswer.answer.answer,
-      roomId: offerAanswer.answer.roomId,
-    });
+    const offer = peerState.offer;
+    if (!offer) return;
 
-    // Apply ICE candidates now
-    await flushCandidates();
+    try {
+      const peer = getPeer(offer.sender);
+      const stream = await acquireLocalStream();
 
-    dispatch(callActions.acceptCall());
+      dispatch(videoActions.setLocalStream(stream));
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+
+      await peer.setRemoteDescription(new RTCSessionDescription(offer.offer));
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+
+      const answerData = {
+        sender: currentMobile,
+        receiver: offer.sender,
+        answer,
+        roomId: offer.roomId,
+      };
+
+      dispatch(peerActions.setAnswer(answerData));
+
+      const socket = getSocket(currentMobile);
+      socket.emit("call-answer", answerData);
+      await flushCandidates();
+      dispatch(callActions.acceptCall());
+    } catch {
+      teardownCall();
+    }
   };
+
+  const statusLabel =
+    callStatus === "connected" ? "Connecting..." : "Incoming Call";
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-sm text-center animate-slideUp">
-        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-200 overflow-hidden">
-          {/* <img
-            src="/caller-avatar.png"
-            alt="Caller"
-            className="w-full h-full object-cover"
-          /> */}
-        </div>
+        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-200 overflow-hidden" />
         <h2 className="text-xl font-semibold text-gray-800 mb-1">
-          Incoming Call
+          {statusLabel}
         </h2>
-        <p className="text-lg text-gray-600 mb-6">John Doe is calling...</p>
+        <p className="text-lg text-gray-600 mb-6">{mobile} is calling...</p>
         <div className="flex justify-center gap-8">
           <button
             onClick={handleReject}

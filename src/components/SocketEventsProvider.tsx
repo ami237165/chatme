@@ -2,16 +2,20 @@
 
 import { useEffect } from "react";
 import { useSelector } from "react-redux";
-import { getSocket, emitGoOffline } from "@/utils/SocketIo/SocketIo";
+import { getSocket, closeSocket } from "@/utils/SocketIo/SocketIo";
 import { isTokenValid } from "@/utils/token_decoder";
 import { useHandleNewMsg } from "@/hooks/useHandleNewMsg";
 import { useUpdateMsg } from "@/hooks/useUpdatedMsg";
 import {
   callActions,
   peerActions,
-  videoActions,
 } from "@/store/slices/callSlice";
-import { getPeer } from "@/utils/callRelated/Peer";
+import {
+  addCandidateSafely,
+  flushCandidates,
+  getPeer,
+} from "@/utils/callRelated/Peer";
+import { teardownCall } from "@/utils/callRelated/teardownCall";
 import { useDispatch } from "react-redux";
 
 const getRoomId = (userA: string, userB: string) =>
@@ -61,8 +65,6 @@ export default function SocketEventsProvider() {
     }) => {
       if (!data.roomId) return;
       const { msg_id, ...remaining } = data;
-      console.log("message delivered");
-
       handleUpdateMessage(data.roomId, msg_id, remaining);
     };
 
@@ -85,8 +87,7 @@ export default function SocketEventsProvider() {
       objectKey?: string;
     }) => {
       if (!data.roomId || !data.messageId) return;
-      console.log("here in ",data.roomId,data.messageId);
-      
+
       handleUpdateFileProgress(
         data.roomId,
         data.messageId,
@@ -102,7 +103,7 @@ export default function SocketEventsProvider() {
       isUploading?: boolean;
       files?: Array<{
         fileId: string;
-        objectName:string;
+        objectName: string;
         fileName: string;
         fileType: string;
         objectKey: string;
@@ -115,53 +116,65 @@ export default function SocketEventsProvider() {
       });
     };
 
-    const onCallOffer = async (data: {
+    const onCallOffer = (data: {
       sender: string;
       receiver: string;
       offer: RTCSessionDescriptionInit;
       roomId: string;
     }) => {
+      if (data.receiver !== currentMobile || data.sender === currentMobile) {
+        return;
+      }
+
+      getPeer(data.sender);
+      dispatch(peerActions.setOffer(data));
+      dispatch(callActions.incomingCall());
+    };
+
+    const onCallAnswer = async (data: {
+      sender: string;
+      receiver: string;
+      answer: RTCSessionDescriptionInit;
+      roomId: string;
+    }) => {
       if (data.receiver !== currentMobile) return;
 
       const peer = getPeer(data.sender);
+      dispatch(peerActions.setAnswer(data));
 
-      if (!navigator.mediaDevices?.getUserMedia) return;
+      if (peer.signalingState !== "have-local-offer") return;
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 48000,
-        },
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+      await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
+      await flushCandidates();
+      dispatch(callActions.acceptCall());
+    };
 
-      dispatch(videoActions.setLocalStream(stream));
-      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
-      await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
-      dispatch(peerActions.setOffer(data));
+    const onIceCandidate = async (data: {
+      receiver: string;
+      candidate: RTCIceCandidateInit;
+    }) => {
+      if (data.receiver !== currentMobile) return;
+      await addCandidateSafely(data.candidate);
+    };
 
-      const answer = await peer.createAnswer();
-      const answerData = {
-        sender: currentMobile,
-        receiver: data.sender,
-        answer,
-        roomId: data.roomId,
-      };
-      await peer.setLocalDescription(answer);
-      dispatch(peerActions.setAnswer(answerData));
-      dispatch(callActions.incomingCall());
+    const onEndCall = (data: { receiver: string }) => {
+      if (data.receiver !== currentMobile) return;
+      teardownCall();
+    };
+
+    const onHangupCall = (data: { receiver: string }) => {
+      if (data.receiver !== currentMobile) return;
+      teardownCall();
     };
 
     socket.on("receive_message", onReceiveMessage);
     socket.on("message_sent", onMessageSent);
     socket.on("message_delivered", onMessageDelivered);
     socket.on("call-offer", onCallOffer);
+    socket.on("call-answer", onCallAnswer);
+    socket.on("ice-candidate", onIceCandidate);
+    socket.on("end-call", onEndCall);
+    socket.on("hangup-call", onHangupCall);
     socket.on("message_red", onMessageRead);
     socket.on("upload_progress", onUploadProgress);
     socket.on("message_media_ready", onMessageMediaReady);
@@ -171,6 +184,10 @@ export default function SocketEventsProvider() {
       socket.off("message_sent", onMessageSent);
       socket.off("message_delivered", onMessageDelivered);
       socket.off("call-offer", onCallOffer);
+      socket.off("call-answer", onCallAnswer);
+      socket.off("ice-candidate", onIceCandidate);
+      socket.off("end-call", onEndCall);
+      socket.off("hangup-call", onHangupCall);
       socket.off("message_red", onMessageRead);
       socket.off("upload_progress", onUploadProgress);
       socket.off("message_media_ready", onMessageMediaReady);
@@ -178,8 +195,10 @@ export default function SocketEventsProvider() {
   }, [currentMobile, token, dispatch, handleNewMessage, handleUpdateMessage, handleUpdateFileProgress]);
 
   useEffect(() => {
-    const handlePageHide = () => {
-      emitGoOffline();
+    const handlePageHide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+      teardownCall();
+      void closeSocket("tab-close");
     };
 
     window.addEventListener("pagehide", handlePageHide);

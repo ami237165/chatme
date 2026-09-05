@@ -25,7 +25,7 @@ interface MessageData {
   isRead?: boolean;
   isSent?: boolean;
   // Timestamps
-  timestamp: number;
+  timestamp: string;
   roomId: string;
   delivered?:boolean;
 }

@@ -9,6 +9,18 @@ export const authApi = baseApi.injectEndpoints({
         body: credentials,
       }),
     }),
+    refresh: builder.mutation({
+      query: () => ({
+        url: "auth/refresh",
+        method: "POST",
+      }),
+    }),
+    logout: builder.mutation({
+      query: () => ({
+        url: "auth/logout",
+        method: "POST",
+      }),
+    }),
     register: builder.mutation({
       query: (credentials) => ({
         url: "registeration/new",
@@ -19,4 +31,9 @@ export const authApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useLoginMutation, useRegisterMutation } = authApi;
+export const {
+  useLoginMutation,
+  useRefreshMutation,
+  useLogoutMutation,
+  useRegisterMutation,
+} = authApi;

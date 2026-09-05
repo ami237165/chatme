@@ -1,70 +1,34 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { getSocket } from "../SocketIo/SocketIo";
 import {
-  callActions,
-  peerActions,
-  videoActions,
-} from "@/store/slices/callSlice";
-import { addCandidateSafely, flushCandidates, getPeer } from "./Peer";
-import {
-  Camera,
   Mic,
   MicOff,
   PhoneMissed,
   Video,
   VideoOff,
 } from "lucide-react";
-import { useOnHangUpCall } from "@/hooks/useOnHangUpCall";
+import { clearVideoElements, teardownCall } from "./teardownCall";
 
-export default function CallOverLay(props: any) {
-  const dispatch = useDispatch();
+type CallOverLayProps = {
+  mobile: string;
+  currentMobile: string;
+};
+
+export default function CallOverLay({ mobile, currentMobile }: CallOverLayProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
-
   const mainScreenRef = useRef<HTMLDivElement>(null);
   const localScreenRef = useRef<HTMLDivElement>(null);
   const video = useSelector((state: any) => state.video);
-
-  const localVideoRef = useRef<HTMLVideoElement>(null); // Local box
-  const localMainVideoRef = useRef<HTMLVideoElement>(null); // Main screen fallback
+  const callStatus = useSelector((state: any) => state.call.status);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const localMainVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-  const currentMobile = useSelector((state: any) => state.auth.currentMobile);
-  const { handleHangUpCall } = useOnHangUpCall({ currentMobile });
   const [isDragging, setIsDragging] = useState(false);
-  const offerAanswer = useSelector((state: any) => state.peer);
 
-  // Handle signaling events
-  useEffect(() => {
-    const peer = getPeer(props.mobile);
-    const socket = getSocket(currentMobile);
-
-    socket.on("call-answer", async (data) => {
-      
-      dispatch(peerActions.setAnswer(data));
-      if (peer.signalingState === "have-local-offer") {
-        
-        await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
-        await flushCandidates();
-        dispatch(callActions.acceptCall());
-      } else {
-              }
-    });
-
-    socket.on("ice-candidate", async (data) => {
-      
-      await addCandidateSafely(data.candidate);
-    });
-
-    return () => {
-      socket.off("call-answer");
-      socket.off("ice-candidate");
-    };
-  }, [dispatch, currentMobile]);
-
-  // Position local box initially
   useEffect(() => {
     if (mainScreenRef.current && localScreenRef.current) {
       const container = mainScreenRef.current.getBoundingClientRect();
@@ -74,13 +38,13 @@ export default function CallOverLay(props: any) {
         y: container.height - box.height - 10,
       });
     }
-  }, []);
+  }, [video.remoteStream]);
 
-  // Handle dragging
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
-      if (!isDragging || !mainScreenRef.current || !localScreenRef.current)
+      if (!isDragging || !mainScreenRef.current || !localScreenRef.current) {
         return;
+      }
 
       const container = mainScreenRef.current.getBoundingClientRect();
       const box = localScreenRef.current.getBoundingClientRect();
@@ -105,17 +69,17 @@ export default function CallOverLay(props: any) {
     };
   }, [isDragging]);
 
-  // Assign local video streams
   useEffect(() => {
     if (video.localStream) {
-      if (localMainVideoRef.current)
+      if (localMainVideoRef.current) {
         localMainVideoRef.current.srcObject = video.localStream;
-      if (localVideoRef.current)
+      }
+      if (localVideoRef.current) {
         localVideoRef.current.srcObject = video.localStream;
+      }
     }
   }, [video.localStream]);
 
-  // Assign remote video
   useEffect(() => {
     if (video.remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = video.remoteStream;
@@ -123,19 +87,10 @@ export default function CallOverLay(props: any) {
   }, [video.remoteStream]);
 
   useEffect(() => {
-    if (video.remoteStream) {
-      const peer = getPeer(props.mobile);
-      let tt = peer
-        .getSenders()
-        .filter((sender) => sender.track?.kind === "audio");
-          }
-  }, [video.remoteStream]);
-  // Re-assign local video when remote stream appears
-  useEffect(() => {
     if (video.remoteStream && video.localStream && localVideoRef.current) {
       localVideoRef.current.srcObject = video.localStream;
     }
-  }, [video.remoteStream]);
+  }, [video.remoteStream, video.localStream]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!localScreenRef.current) return;
@@ -146,118 +101,45 @@ export default function CallOverLay(props: any) {
       y: e.clientY - box.top,
     };
   };
-  useEffect(() => {
-    const socket = getSocket(currentMobile);
-    socket.on("end-call", (data) => {
-      dispatch(callActions.endCall());
 
-    if (video.localStream) {
-      video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
-        track.stop();
-      });
-      // CLEAR local stream in Redux
-      dispatch(videoActions.setLocalStream(null));
-    }
-
-    if (video.remoteStream) {
-      video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
-        track.stop();
-      });
-      // CLEAR remote stream in Redux
-      dispatch(videoActions.setRemoteStream(null));
-    }
-    setIsDragging(false);
-
-    // Clear video elements
-    if (localMainVideoRef.current) localMainVideoRef.current.srcObject = null;
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    if (mainScreenRef.current) mainScreenRef.current = null;
-
-    // Reset peer
-    const peer = getPeer(currentMobile);
-    peer.getSenders().forEach((sender) => {
-      try {
-        peer.removeTrack(sender);
-      } catch (e) {}
-    });
-    peer.close();
-  });
-  }, []);
   const toggleAudio = () => {
-    if (video.localStream) {
-      video.localStream.getAudioTracks().forEach((track: MediaStreamTrack) => {
-        track.enabled = !track.enabled;
-      });
-      setIsAudioEnabled((prev) => !prev);
-    }
+    video.localStream?.getAudioTracks().forEach((track: MediaStreamTrack) => {
+      track.enabled = !track.enabled;
+    });
+    setIsAudioEnabled((prev) => !prev);
   };
 
   const toggleVideo = () => {
-    if (video.localStream) {
-      video.localStream.getVideoTracks().forEach((track: MediaStreamTrack) => {
-        track.enabled = !track.enabled;
-      });
-      setIsVideoEnabled((prev) => !prev);
-    }
-  };
-  const handleEndCall = () => {
-    dispatch(callActions.endCall());
-
-    if (video.localStream) {
-      video.localStream.getTracks().forEach((track: MediaStreamTrack) => {
-        track.stop();
-      });
-      // CLEAR local stream in Redux
-      dispatch(videoActions.setLocalStream(null));
-    }
-
-    if (video.remoteStream) {
-      video.remoteStream.getTracks().forEach((track: MediaStreamTrack) => {
-        track.stop();
-      });
-      // CLEAR remote stream in Redux
-      dispatch(videoActions.setRemoteStream(null));
-    }
-    setIsDragging(false);
-
-    // Clear video elements
-    if (localMainVideoRef.current) localMainVideoRef.current.srcObject = null;
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    if (mainScreenRef.current) mainScreenRef.current = null;
-
-    // Reset peer
-    const peer = getPeer(currentMobile);
-    peer.getSenders().forEach((sender) => {
-      try {
-        peer.removeTrack(sender);
-      } catch (e) {}
+    video.localStream?.getVideoTracks().forEach((track: MediaStreamTrack) => {
+      track.enabled = !track.enabled;
     });
-    peer.close(); // important
+    setIsVideoEnabled((prev) => !prev);
+  };
 
-    // Emit event to other peer
+  const handleEndCall = () => {
     const socket = getSocket(currentMobile);
-    const getRoomId = (userA: string, userB: string) =>
-      [userA, userB].sort().join("_");
-    const currentRoomId = getRoomId(currentMobile, props.mobile);
+    const roomId = [mobile, currentMobile].sort().join("_");
 
     socket.emit("end-call", {
       sender: currentMobile,
-      receiver: props.mobile,
-      roomId: currentRoomId,
-    });
-  };
-  useEffect(() => {
-    const socket = getSocket(currentMobile);
-    socket.on("hangup-call", () => {
-      handleHangUpCall();
+      receiver: mobile,
+      roomId,
     });
 
-    return () => {
-      socket.off("hangup-call");
-    };
-  }, []);
+    clearVideoElements([
+      localMainVideoRef.current,
+      localVideoRef.current,
+      remoteVideoRef.current,
+    ]);
+    teardownCall();
+  };
+
+  const statusLabel =
+    callStatus === "connected"
+      ? "Connected"
+      : callStatus === "calling"
+        ? "Calling..."
+        : "On call";
 
   return (
     <div className="fixed inset-0 z-50 w-full bg-gray-200 h-full">
@@ -265,7 +147,10 @@ export default function CallOverLay(props: any) {
         ref={mainScreenRef}
         className="fixed inset-0 z-40 bg-black m-2 rounded flex items-center justify-center overflow-hidden"
       >
-        {/* Main Screen: Show remote if available, otherwise local */}
+        <div className="absolute top-4 left-4 z-50 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+          {statusLabel}
+        </div>
+
         <video
           ref={remoteVideoRef}
           playsInline
@@ -273,17 +158,18 @@ export default function CallOverLay(props: any) {
           muted={false}
           className="h-full w-full object-cover"
           style={{ display: video.remoteStream ? "block" : "none" }}
-        ></video>
+        />
 
         {!video.remoteStream && (
           <video
-            ref={localMainVideoRef} // Separate ref for fallback
+            ref={localMainVideoRef}
             playsInline
-            muted={true}
+            muted
             autoPlay
             className="h-full w-full object-cover"
-          ></video>
+          />
         )}
+
         {video.remoteStream && (
           <div
             style={{
@@ -299,32 +185,39 @@ export default function CallOverLay(props: any) {
             <video
               ref={localVideoRef}
               playsInline
-              muted={true}
+              muted
               autoPlay
               className="h-full w-full object-cover"
-            ></video>
+            />
           </div>
         )}
+
         <div className="absolute w-[80%] z-50 flex flex-row p-2 items-center justify-evenly bottom-0">
-          <div
+          <button
+            type="button"
             onClick={toggleAudio}
             className="p-2 rounded-full border hover:scale-110 transition"
           >
             {isAudioEnabled ? <Mic color="white" /> : <MicOff color="gray" />}
-          </div>
-          <div onClick={handleEndCall} className="p-3 rounded-full bg-red-600">
+          </button>
+          <button
+            type="button"
+            onClick={handleEndCall}
+            className="p-3 rounded-full bg-red-600"
+          >
             <PhoneMissed color="white" />
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
             onClick={toggleVideo}
-            className={`p-2 rounded-full border  hover:scale-110 transition`}
+            className="p-2 rounded-full border hover:scale-110 transition"
           >
             {isVideoEnabled ? (
               <Video color="white" />
             ) : (
               <VideoOff color="gray" />
             )}
-          </div>
+          </button>
         </div>
       </div>
     </div>

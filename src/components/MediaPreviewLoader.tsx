@@ -360,14 +360,15 @@ export function MediaPreviewLoader({ file, isOwnMessage, isUploading }: Props) {
   };
 
   const handleDownload = async () => {
-    if (!file.objectName || isDownloading) return;
+    const storageKey = file.objectName || file.objectKey;
+    if (!storageKey || isDownloading) return;
 
     setIsDownloading(true);
     setDownloadError(false);
     setDownloadProgress(0);
 
     try {
-      const downloaded = await downloadMediaFile(file.objectName, setDownloadProgress);
+      const downloaded = await downloadMediaFile(storageKey, setDownloadProgress);
       const mimeType = resolveMimeType(file);
       const blob = await toTypedBlob(downloaded, mimeType);
       await saveMediaToIndexedDB(file.fileId, blob);
@@ -381,11 +382,11 @@ export function MediaPreviewLoader({ file, isOwnMessage, isUploading }: Props) {
   };
 
   const uploadProgress = file.uploadProgress ?? 0;
-  const isUploadComplete = Boolean(file.objectKey);
+  const isRemoteMediaReady = Boolean(file.objectKey || file.objectName);
   const showUploadProgress =
     isOwnMessage &&
-    !isUploadComplete &&
     isUploading === true &&
+    !isRemoteMediaReady &&
     uploadProgress < 100;
 
   if (showUploadProgress) {
@@ -403,7 +404,7 @@ export function MediaPreviewLoader({ file, isOwnMessage, isUploading }: Props) {
     );
   }
 
-  if (!blobUrl && file.objectName) {
+  if (!blobUrl && isRemoteMediaReady) {
     return (
       <div className="mt-1 space-y-1">
         <p className="text-xs text-gray-300">{file.fileName}</p>

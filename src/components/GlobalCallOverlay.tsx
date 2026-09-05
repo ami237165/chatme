@@ -9,7 +9,12 @@ export default function GlobalCallOverlay() {
   const offer = useSelector((state: any) => state.peer?.offer);
   const currentMobile = useSelector((state: any) => state.auth.currentMobile);
 
-  if (call.status === "incoming" && offer?.sender) {
+  if (
+    call.status === "incoming" &&
+    offer?.receiver === currentMobile &&
+    offer?.sender &&
+    offer.sender !== currentMobile
+  ) {
     return (
       <IncomingCallOverlay
         mobile={offer.sender}

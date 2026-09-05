@@ -21,7 +21,7 @@ export interface MessageData {
   isUploading?: boolean;
   isRead?: boolean;
   isSent?: boolean;
-  timestamp: any;
+  timestamp: string;
   roomId: string;
   delivered?: boolean;
 }
